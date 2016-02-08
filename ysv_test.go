@@ -6,7 +6,7 @@ import (
 )
 
 func TestString(t *testing.T) {
-	p := pkg{
+	p := Package{
 		Path: "mcquay.me/bps",
 		Repo: "https://s.mcquay.me/sm/bps",
 	}

@@ -32,13 +32,13 @@ var labelToVcs = map[string]vcs{
 // String returns the name of the vcs ("git", "mercurial", ...).
 func (v vcs) String() string { return vcss[v] }
 
-type pkg struct {
+type Package struct {
 	Vcs  vcs    `json":vcs"`
 	Path string `json:"path"`
 	Repo string `json:"repo"`
 }
 
-func (p pkg) String() string {
+func (p Package) String() string {
 	return fmt.Sprintf(
 		"<meta name=\"go-import\" content=\"%s %s %s\">",
 		p.Path,

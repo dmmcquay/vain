@@ -17,15 +17,15 @@ POST /v0/package/
 A sample json object:
 
 	{
-		"path": "mcquay.me/ysv",
-		"repo": "https://s.mcquay.me/sm/ysv"
+		"path": "mcquay.me/vain",
+		"repo": "https://s.mcquay.me/sm/vain"
 	}
 
 Naming
 
-ysv stands for You're so Vain, the song by Carly Simon.
+the "ysv" in ysvd stands for You're so Vain, the song by Carly Simon.
 */
-package ysv
+package vain
 
 import "fmt"
 

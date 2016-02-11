@@ -1,4 +1,4 @@
-package ysv
+package vain
 
 import (
 	"fmt"
@@ -31,7 +31,7 @@ func TestVcsStrings(t *testing.T) {
 	}
 	for _, test := range tests {
 		if test.got != test.want {
-			t.Errorf("incorrect conversion of ysv.Vcs -> string; got %q, want %q", test.got, test.want)
+			t.Errorf("incorrect conversion of vain.Vcs -> string; got %q, want %q", test.got, test.want)
 		}
 	}
 }

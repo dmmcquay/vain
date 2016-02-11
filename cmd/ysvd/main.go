@@ -6,7 +6,7 @@ import (
 	"net/http"
 	"os"
 
-	"mcquay.me/ysv"
+	"mcquay.me/vain"
 
 	"github.com/kelseyhightower/envconfig"
 )
@@ -45,7 +45,7 @@ func main() {
 	}
 	log.Printf("serving at: http://%s:%d/", hostname, c.Port)
 	sm := http.NewServeMux()
-	ysv.NewServer(sm)
+	vain.NewServer(sm)
 	addr := fmt.Sprintf(":%d", c.Port)
 	if err := http.ListenAndServe(addr, sm); err != nil {
 		log.Printf("problem with http server: %v", err)

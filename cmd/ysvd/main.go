@@ -1,3 +1,8 @@
+/*
+command ysvd implements the
+
+The "ysv" in ysvd stands for You're so Vain, the song by Carly Simon.
+*/
 package main
 
 import (

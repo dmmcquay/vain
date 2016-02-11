@@ -1,15 +1,25 @@
 package vain
 
-import "net/http"
+import (
+	"fmt"
+	"net/http"
+)
 
 type Server struct {
 }
 
-func NewServer(sm *http.ServeMux) *Server {
-	s := &Server{}
-	addRoutes(sm, s)
-	return s
+func (s *Server) ServeHTTP(w http.ResponseWriter, req *http.Request) {
+	switch req.Method {
+	case "GET":
+	case "POST":
+	case "PATCH":
+	default:
+		http.Error(w, fmt.Sprintf("unsupported method %q; accepted: POST, GET, PATCH", req.Method), http.StatusMethodNotAllowed)
+	}
 }
 
-func addRoutes(sm *http.ServeMux, s *Server) {
+func NewServer(sm *http.ServeMux) *Server {
+	s := &Server{}
+	sm.Handle("/", s)
+	return s
 }

@@ -31,6 +31,10 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 			return
 		}
 		p.Path = fmt.Sprintf("%s/%s", s.hostname, strings.Trim(req.URL.Path, "/"))
+		if !Valid(p.Path, s.storage.All()) {
+			http.Error(w, fmt.Sprintf("invalid path; prefix already taken %q", req.URL.Path), http.StatusConflict)
+			return
+		}
 		s.storage.Add(p)
 	case "PATCH":
 	default:

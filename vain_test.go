@@ -35,3 +35,60 @@ func TestVcsStrings(t *testing.T) {
 		}
 	}
 }
+
+func TestValid(t *testing.T) {
+	tests := []struct {
+		pkgs []Package
+		in   string
+		want bool
+	}{
+		{
+			pkgs: []Package{},
+			in:   "bobo",
+			want: true,
+		},
+		{
+			pkgs: []Package{
+				{Path: ""},
+			},
+			in:   "bobo",
+			want: true,
+		},
+		{
+			pkgs: []Package{
+				{Path: "bobo"},
+			},
+			in:   "bobo",
+			want: false,
+		},
+		{
+			pkgs: []Package{
+				{Path: "a/b/c"},
+			},
+			in:   "a/b/c",
+			want: false,
+		},
+		{
+			pkgs: []Package{
+				{Path: "foo/bar"},
+				{Path: "foo/baz"},
+			},
+			in:   "foo",
+			want: false,
+		},
+		{
+			pkgs: []Package{
+				{Path: "bilbo"},
+				{Path: "frodo"},
+			},
+			in:   "foo/bar/baz",
+			want: true,
+		},
+	}
+	for _, test := range tests {
+		got := Valid(test.in, test.pkgs)
+		if got != test.want {
+			t.Errorf("Incorrect testing of %q against %#v; got %t, want %t", test.in, test.pkgs, got, test.want)
+		}
+	}
+}

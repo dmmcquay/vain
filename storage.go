@@ -2,8 +2,18 @@ package vain
 
 import (
 	"errors"
+	"strings"
 	"sync"
 )
+
+func Valid(p string, packages []Package) bool {
+	for _, pkg := range packages {
+		if strings.HasPrefix(pkg.Path, p) {
+			return false
+		}
+	}
+	return true
+}
 
 type MemStore struct {
 	l sync.RWMutex

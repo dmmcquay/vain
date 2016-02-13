@@ -19,10 +19,9 @@ A sample json object:
 
 	{
 		"vcs": "mercurial",
-		"path": "mcquay.me/vain",
 		"repo": "https://s.mcquay.me/sm/vain"
 	}
 
-"path" and "repo" are required; leaving off the "vcs" member defaults to "git".
+"repo" is required; leaving off the "vcs" member defaults to "git".
 */
 package vain

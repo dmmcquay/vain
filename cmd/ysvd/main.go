@@ -21,15 +21,18 @@ const usage = `ysvd
 environment vars:
 
 YSV_PORT: tcp listen port
+YSV_HOST: hostname to use
 `
 
 type config struct {
 	Port int
+	Host string
 }
 
 func main() {
 	c := &config{
 		Port: 4040,
+		Host: "localhost",
 	}
 	if err := envconfig.Process("ysv", c); err != nil {
 		fmt.Fprintf(os.Stderr, "problem processing environment: %v", err)
@@ -50,7 +53,8 @@ func main() {
 	}
 	log.Printf("serving at: http://%s:%d/", hostname, c.Port)
 	sm := http.NewServeMux()
-	vain.NewServer(sm)
+	ms := vain.NewMemStore()
+	vain.NewServer(sm, ms, c.Host)
 	addr := fmt.Sprintf(":%d", c.Port)
 	if err := http.ListenAndServe(addr, sm); err != nil {
 		log.Printf("problem with http server: %v", err)

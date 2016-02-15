@@ -1,5 +1,40 @@
 /*
-command ysvd implements the
+ysvd, a webserver for hosting go get vanity urls.
+
+The go get command searches for the following header when searching for
+packages:
+
+	<meta name="go-import" content="import-prefix vcs repo-root">
+
+this is simply a service for aggregating a collection of prefix, vcs, and
+repo-root tuples, and serving the appropriate header over http. For more
+information please refer to the documentation for the go tool found at
+https://golang.org/cmd/go/#hdr-Remote_import_paths
+
+API
+
+Assume an instance of ysvd at example.org. In order to add a package
+example.org/foo that points at bitbucket.org/example/foo (a mercurial
+repository) POST the following json object:
+
+	{
+		"vcs": "mercurial",
+		"repo": "https://bitbucket.org/example/foo"
+	}
+
+to https://example.org/foo.
+
+Doing so, then visiting https://example.org/foo?go-get=1 will yield a header
+that looks like:
+
+
+	<meta name="go-import" content="example.org/foo hg https://bitbucket.org/foo">
+
+
+The json object sent to server can have two fields: "repo" and "vcs". "repo" is
+required; leaving off the "vcs" member defaults to "git".
+
+Naming
 
 The "ysv" in ysvd stands for You're so Vain, the song by Carly Simon.
 */

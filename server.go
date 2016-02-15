@@ -35,7 +35,17 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 			http.Error(w, fmt.Sprintf("invalid path; prefix already taken %q", req.URL.Path), http.StatusConflict)
 			return
 		}
-		s.storage.Add(p)
+		if err := s.storage.Add(p); err != nil {
+			http.Error(w, fmt.Sprintf("unable to add package: %v", err), http.StatusInternalServerError)
+			return
+		}
+		if err := s.storage.Save(); err != nil {
+			http.Error(w, fmt.Sprintf("unable to store db: %v", err), http.StatusInternalServerError)
+			if err := s.storage.Remove(p.Path); err != nil {
+				fmt.Fprintf(w, "to add insult to injury, could not delete package: %v\n", err)
+			}
+			return
+		}
 	default:
 		http.Error(w, fmt.Sprintf("unsupported method %q; accepted: POST, GET", req.Method), http.StatusMethodNotAllowed)
 	}

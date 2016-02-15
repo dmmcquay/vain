@@ -22,17 +22,18 @@ environment vars:
 
 YSV_PORT: tcp listen port
 YSV_HOST: hostname to use
+YSV_DB: path to json database
 `
 
 type config struct {
 	Port int
 	Host string
+	DB   string
 }
 
 func main() {
 	c := &config{
 		Port: 4040,
-		Host: "localhost",
 	}
 	if err := envconfig.Process("ysv", c); err != nil {
 		fmt.Fprintf(os.Stderr, "problem processing environment: %v", err)
@@ -41,9 +42,16 @@ func main() {
 	if len(os.Args) > 1 {
 		switch os.Args[1] {
 		case "env", "e", "help", "h":
-			fmt.Fprintf(os.Stderr, "%s\n", usage)
-			os.Exit(1)
+			fmt.Printf("%s\n", usage)
+			os.Exit(0)
 		}
+	}
+	if c.Host == "" {
+		log.Printf("must set YSV_HOST; please run $(ysvd env) for more information")
+		os.Exit(1)
+	}
+	if c.DB == "" {
+		log.Printf("warning: in-memory db mode; if you do not want this set YSV_DB")
 	}
 	hostname := "localhost"
 	if hn, err := os.Hostname(); err != nil {
@@ -53,7 +61,11 @@ func main() {
 	}
 	log.Printf("serving at: http://%s:%d/", hostname, c.Port)
 	sm := http.NewServeMux()
-	ms := vain.NewMemStore()
+	ms := vain.NewMemStore(c.DB)
+	if err := ms.Load(); err != nil {
+		log.Printf("unable to load db: %v", err)
+		os.Exit(1)
+	}
 	vain.NewServer(sm, ms, c.Host)
 	addr := fmt.Sprintf(":%d", c.Port)
 	if err := http.ListenAndServe(addr, sm); err != nil {

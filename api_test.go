@@ -9,7 +9,7 @@ import (
 )
 
 func TestAdd(t *testing.T) {
-	ms := NewMemStore()
+	ms := NewMemStore("")
 	s := &Server{
 		storage: ms,
 	}
@@ -60,7 +60,7 @@ func TestAdd(t *testing.T) {
 }
 
 func TestInvalidPath(t *testing.T) {
-	ms := NewMemStore()
+	ms := NewMemStore("")
 	s := &Server{
 		storage: ms,
 	}
@@ -80,7 +80,7 @@ func TestInvalidPath(t *testing.T) {
 }
 
 func TestCannotDuplicateExistingPath(t *testing.T) {
-	ms := NewMemStore()
+	ms := NewMemStore("")
 	s := &Server{
 		storage: ms,
 	}
@@ -105,7 +105,7 @@ func TestCannotDuplicateExistingPath(t *testing.T) {
 }
 
 func TestCannotAddExistingSubPath(t *testing.T) {
-	ms := NewMemStore()
+	ms := NewMemStore("")
 	s := &Server{
 		storage: ms,
 	}

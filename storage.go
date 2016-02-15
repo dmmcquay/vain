@@ -1,7 +1,8 @@
 package vain
 
 import (
-	"errors"
+	"encoding/json"
+	"os"
 	"strings"
 	"sync"
 )
@@ -18,33 +19,63 @@ func Valid(p string, packages []Package) bool {
 type MemStore struct {
 	l sync.RWMutex
 	p map[string]Package
+
+	dbl  sync.Mutex
+	path string
 }
 
-func NewMemStore() *MemStore {
+func NewMemStore(path string) *MemStore {
 	return &MemStore{
-		p: make(map[string]Package),
+		path: path,
+		p:    make(map[string]Package),
 	}
 }
 
-func (ms MemStore) Add(p Package) error {
+func (ms *MemStore) Add(p Package) error {
 	ms.l.Lock()
 	ms.p[p.Path] = p
 	ms.l.Unlock()
 	return nil
 }
 
-func (ms MemStore) Remove(path string) error {
+func (ms *MemStore) Remove(path string) error {
 	ms.l.Lock()
 	delete(ms.p, path)
 	ms.l.Unlock()
 	return nil
 }
 
-func (ms MemStore) Save() error {
-	return errors.New("save is not implemented")
+func (ms *MemStore) Save() error {
+	// running in-memory only
+	if ms.path == "" {
+		return nil
+	}
+	ms.dbl.Lock()
+	defer ms.dbl.Unlock()
+	f, err := os.Create(ms.path)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	return json.NewEncoder(f).Encode(ms.p)
 }
 
-func (ms MemStore) All() []Package {
+func (ms *MemStore) Load() error {
+	// running in-memory only
+	if ms.path == "" {
+		return nil
+	}
+	ms.dbl.Lock()
+	defer ms.dbl.Unlock()
+	f, err := os.Open(ms.path)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	return json.NewDecoder(f).Decode(&ms.p)
+}
+
+func (ms *MemStore) All() []Package {
 	r := []Package{}
 	ms.l.RLock()
 	for _, p := range ms.p {

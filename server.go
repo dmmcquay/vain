@@ -36,9 +36,8 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 			return
 		}
 		s.storage.Add(p)
-	case "PATCH":
 	default:
-		http.Error(w, fmt.Sprintf("unsupported method %q; accepted: POST, GET, PATCH", req.Method), http.StatusMethodNotAllowed)
+		http.Error(w, fmt.Sprintf("unsupported method %q; accepted: POST, GET", req.Method), http.StatusMethodNotAllowed)
 	}
 }
 

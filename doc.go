@@ -13,7 +13,7 @@ API
 
 In order to add a new package POST a json object to the following route:
 
-	POST /v0/package/
+	POST /
 
 A sample json object:
 

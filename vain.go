@@ -24,7 +24,7 @@ var labelToVcs = map[string]vcs{
 func (v vcs) String() string { return vcss[v] }
 
 type Package struct {
-	Vcs  vcs    `json":vcs"`
+	Vcs  vcs    `json:"vcs"`
 	Path string `json:"path"`
 	Repo string `json:"repo"`
 }

@@ -78,3 +78,56 @@ func TestInvalidPath(t *testing.T) {
 		t.Errorf("should have failed to post at bad route; got %s, want %s", resp.Status, http.StatusText(http.StatusBadRequest))
 	}
 }
+
+func TestCannotDuplicateExistingPath(t *testing.T) {
+	ms := NewMemStore()
+	s := &Server{
+		storage: ms,
+	}
+	ts := httptest.NewServer(s)
+	s.hostname = ts.URL
+
+	url := fmt.Sprintf("%s/foo", ts.URL)
+	resp, err := http.Post(url, "application/json", strings.NewReader(`{"repo": "https://s.mcquay.me/sm/vain"}`))
+	if err != nil {
+		t.Errorf("couldn't POST: %v", err)
+	}
+	if want := http.StatusOK; resp.StatusCode != want {
+		t.Errorf("initial post should have worked; got %s, want %s", resp.Status, http.StatusText(want))
+	}
+	resp, err = http.Post(url, "application/json", strings.NewReader(`{"repo": "https://s.mcquay.me/sm/vain"}`))
+	if err != nil {
+		t.Errorf("couldn't POST: %v", err)
+	}
+	if want := http.StatusConflict; resp.StatusCode != want {
+		t.Errorf("initial post should have worked; got %s, want %s", resp.Status, http.StatusText(want))
+	}
+}
+
+func TestCannotAddExistingSubPath(t *testing.T) {
+	ms := NewMemStore()
+	s := &Server{
+		storage: ms,
+	}
+	ts := httptest.NewServer(s)
+	s.hostname = ts.URL
+
+	url := fmt.Sprintf("%s/foo/bar", ts.URL)
+	resp, err := http.Post(url, "application/json", strings.NewReader(`{"repo": "https://s.mcquay.me/sm/vain"}`))
+	if err != nil {
+		t.Errorf("couldn't POST: %v", err)
+	}
+	if want := http.StatusOK; resp.StatusCode != want {
+		t.Errorf("initial post should have worked; got %s, want %s", resp.Status, http.StatusText(want))
+	}
+
+	url = fmt.Sprintf("%s/foo", ts.URL)
+	resp, err = http.Post(url, "application/json", strings.NewReader(`{"repo": "https://s.mcquay.me/sm/vain"}`))
+	resp, err = http.Post(url, "application/json", strings.NewReader(`{"repo": "https://s.mcquay.me/sm/vain"}`))
+	if err != nil {
+		t.Errorf("couldn't POST: %v", err)
+	}
+	if want := http.StatusConflict; resp.StatusCode != want {
+		t.Errorf("initial post should have worked; got %s, want %s", resp.Status, http.StatusText(want))
+	}
+}

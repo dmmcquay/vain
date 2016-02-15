@@ -7,7 +7,7 @@ import (
 
 func TestString(t *testing.T) {
 	p := Package{
-		Path: "mcquay.me/bps",
+		path: "mcquay.me/bps",
 		Repo: "https://s.mcquay.me/sm/bps",
 	}
 	got := fmt.Sprintf("%s", p)
@@ -49,37 +49,37 @@ func TestValid(t *testing.T) {
 		},
 		{
 			pkgs: []Package{
-				{Path: ""},
+				{path: ""},
 			},
 			in:   "bobo",
 			want: true,
 		},
 		{
 			pkgs: []Package{
-				{Path: "bobo"},
+				{path: "bobo"},
 			},
 			in:   "bobo",
 			want: false,
 		},
 		{
 			pkgs: []Package{
-				{Path: "a/b/c"},
+				{path: "a/b/c"},
 			},
 			in:   "a/b/c",
 			want: false,
 		},
 		{
 			pkgs: []Package{
-				{Path: "foo/bar"},
-				{Path: "foo/baz"},
+				{path: "foo/bar"},
+				{path: "foo/baz"},
 			},
 			in:   "foo",
 			want: false,
 		},
 		{
 			pkgs: []Package{
-				{Path: "bilbo"},
-				{Path: "frodo"},
+				{path: "bilbo"},
+				{path: "frodo"},
 			},
 			in:   "foo/bar/baz",
 			want: true,

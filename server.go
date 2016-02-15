@@ -7,9 +7,20 @@ import (
 	"strings"
 )
 
+// NewServer populates a server, adds the routes, and returns it for use.
+func NewServer(sm *http.ServeMux, store Storage, hostname string) *Server {
+	s := &Server{
+		storage:  store,
+		hostname: hostname,
+	}
+	sm.Handle("/", s)
+	return s
+}
+
+// Server serves up the http.
 type Server struct {
 	hostname string
-	storage  *MemStore
+	storage  Storage
 }
 
 func (s *Server) ServeHTTP(w http.ResponseWriter, req *http.Request) {
@@ -27,11 +38,15 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		}
 		p := Package{}
 		if err := json.NewDecoder(req.Body).Decode(&p); err != nil {
-			http.Error(w, fmt.Sprintf("unable to parse json from body: %v", err), http.StatusInternalServerError)
+			http.Error(w, fmt.Sprintf("unable to parse json from body: %v", err), http.StatusBadRequest)
 			return
 		}
-		p.Path = fmt.Sprintf("%s/%s", s.hostname, strings.Trim(req.URL.Path, "/"))
-		if !Valid(p.Path, s.storage.All()) {
+		if p.Repo == "" {
+			http.Error(w, fmt.Sprintf("invalid repository %q", req.URL.Path), http.StatusBadRequest)
+			return
+		}
+		p.path = fmt.Sprintf("%s/%s", s.hostname, strings.Trim(req.URL.Path, "/"))
+		if !Valid(p.path, s.storage.All()) {
 			http.Error(w, fmt.Sprintf("invalid path; prefix already taken %q", req.URL.Path), http.StatusConflict)
 			return
 		}
@@ -39,23 +54,7 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 			http.Error(w, fmt.Sprintf("unable to add package: %v", err), http.StatusInternalServerError)
 			return
 		}
-		if err := s.storage.Save(); err != nil {
-			http.Error(w, fmt.Sprintf("unable to store db: %v", err), http.StatusInternalServerError)
-			if err := s.storage.Remove(p.Path); err != nil {
-				fmt.Fprintf(w, "to add insult to injury, could not delete package: %v\n", err)
-			}
-			return
-		}
 	default:
 		http.Error(w, fmt.Sprintf("unsupported method %q; accepted: POST, GET", req.Method), http.StatusMethodNotAllowed)
 	}
-}
-
-func NewServer(sm *http.ServeMux, ms *MemStore, hostname string) *Server {
-	s := &Server{
-		storage:  ms,
-		hostname: hostname,
-	}
-	sm.Handle("/", s)
-	return s
 }

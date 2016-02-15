@@ -1,3 +1,6 @@
+// Package vain implements a vanity service for use by the the go tool.
+//
+// The executable, cmd/ysvd, is located in the respective subdirectory.
 package vain
 
 import "fmt"
@@ -5,7 +8,10 @@ import "fmt"
 type vcs int
 
 const (
+	// Git is the default Vcs.
 	Git vcs = iota
+
+	// Hg is mercurial
 	Hg
 )
 
@@ -23,16 +29,25 @@ var labelToVcs = map[string]vcs{
 // String returns the name of the vcs ("git", "mercurial", ...).
 func (v vcs) String() string { return vcss[v] }
 
+// Package stores the three pieces of information needed to create the meta
+// tag. Two of these (Vcs and Repo) are stored explicitly, and the third is
+// determined implicitly by the path POSTed to. For more information refer to
+// the documentation for the go tool:
+//
+// https://golang.org/cmd/go/#hdr-Remote_import_paths
 type Package struct {
-	Vcs  vcs    `json:"vcs"`
-	Path string `json:"path"`
+	//Vcs (version control system) supported: "git", "mercurial"
+	Vcs vcs `json:"vcs"`
+	// Repo: the remote repository url
 	Repo string `json:"repo"`
+
+	path string
 }
 
 func (p Package) String() string {
 	return fmt.Sprintf(
 		"<meta name=\"go-import\" content=\"%s %s %s\">",
-		p.Path,
+		p.path,
 		p.Vcs,
 		p.Repo,
 	)

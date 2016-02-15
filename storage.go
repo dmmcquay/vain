@@ -2,21 +2,32 @@ package vain
 
 import (
 	"encoding/json"
+	"errors"
+	"fmt"
 	"os"
 	"strings"
 	"sync"
 )
 
+// Valid checks that p will not confuse the go tool if added to packages.
 func Valid(p string, packages []Package) bool {
 	for _, pkg := range packages {
-		if strings.HasPrefix(pkg.Path, p) {
+		if strings.HasPrefix(pkg.path, p) {
 			return false
 		}
 	}
 	return true
 }
 
-type MemStore struct {
+// Storage is a shim to allow for alternate storage types.
+type Storage interface {
+	Add(p Package) error
+	Remove(path string) error
+	All() []Package
+}
+
+// SimpleStore implements a simple json on-disk storage.
+type SimpleStore struct {
 	l sync.RWMutex
 	p map[string]Package
 
@@ -24,28 +35,51 @@ type MemStore struct {
 	path string
 }
 
-func NewMemStore(path string) *MemStore {
-	return &MemStore{
+// NewMemStore returns a ready-to-use SimpleStore storing json at path.
+func NewMemStore(path string) *SimpleStore {
+	return &SimpleStore{
 		path: path,
 		p:    make(map[string]Package),
 	}
 }
 
-func (ms *MemStore) Add(p Package) error {
+// Add adds p to the SimpleStore.
+func (ms *SimpleStore) Add(p Package) error {
 	ms.l.Lock()
-	ms.p[p.Path] = p
+	ms.p[p.path] = p
 	ms.l.Unlock()
+	m := ""
+	if err := ms.Save(); err != nil {
+		m = fmt.Sprintf("unable to store db: %v", err)
+		if err := ms.Remove(p.path); err != nil {
+			m = fmt.Sprintf("%s\nto add insult to injury, could not delete package: %v\n", m, err)
+		}
+		return errors.New(m)
+	}
 	return nil
 }
 
-func (ms *MemStore) Remove(path string) error {
+// Remove removes p from the SimpleStore.
+func (ms *SimpleStore) Remove(path string) error {
 	ms.l.Lock()
 	delete(ms.p, path)
 	ms.l.Unlock()
 	return nil
 }
 
-func (ms *MemStore) Save() error {
+// All returns all current packages.
+func (ms *SimpleStore) All() []Package {
+	r := []Package{}
+	ms.l.RLock()
+	for _, p := range ms.p {
+		r = append(r, p)
+	}
+	ms.l.RUnlock()
+	return r
+}
+
+// Save writes the db to disk.
+func (ms *SimpleStore) Save() error {
 	// running in-memory only
 	if ms.path == "" {
 		return nil
@@ -60,7 +94,8 @@ func (ms *MemStore) Save() error {
 	return json.NewEncoder(f).Encode(ms.p)
 }
 
-func (ms *MemStore) Load() error {
+// Load reads the db from disk and populates ms.
+func (ms *SimpleStore) Load() error {
 	// running in-memory only
 	if ms.path == "" {
 		return nil
@@ -73,14 +108,4 @@ func (ms *MemStore) Load() error {
 	}
 	defer f.Close()
 	return json.NewDecoder(f).Decode(&ms.p)
-}
-
-func (ms *MemStore) All() []Package {
-	r := []Package{}
-	ms.l.RLock()
-	for _, p := range ms.p {
-		r = append(r, p)
-	}
-	ms.l.RUnlock()
-	return r
 }

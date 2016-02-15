@@ -11,7 +11,7 @@ import (
 )
 
 func TestAdd(t *testing.T) {
-	ms := NewMemStore("")
+	ms := NewSimpleStore("")
 	s := &Server{
 		storage: ms,
 	}
@@ -78,7 +78,7 @@ func TestAdd(t *testing.T) {
 }
 
 func TestInvalidPath(t *testing.T) {
-	ms := NewMemStore("")
+	ms := NewSimpleStore("")
 	s := &Server{
 		storage: ms,
 	}
@@ -98,7 +98,7 @@ func TestInvalidPath(t *testing.T) {
 }
 
 func TestCannotDuplicateExistingPath(t *testing.T) {
-	ms := NewMemStore("")
+	ms := NewSimpleStore("")
 	s := &Server{
 		storage: ms,
 	}
@@ -123,7 +123,7 @@ func TestCannotDuplicateExistingPath(t *testing.T) {
 }
 
 func TestCannotAddExistingSubPath(t *testing.T) {
-	ms := NewMemStore("")
+	ms := NewSimpleStore("")
 	s := &Server{
 		storage: ms,
 	}
@@ -151,7 +151,7 @@ func TestCannotAddExistingSubPath(t *testing.T) {
 }
 
 func TestMissingRepo(t *testing.T) {
-	ms := NewMemStore("")
+	ms := NewSimpleStore("")
 	s := &Server{
 		storage: ms,
 	}
@@ -171,7 +171,7 @@ func TestMissingRepo(t *testing.T) {
 }
 
 func TestBadJson(t *testing.T) {
-	ms := NewMemStore("")
+	ms := NewSimpleStore("")
 	s := &Server{
 		storage: ms,
 	}
@@ -191,7 +191,7 @@ func TestBadJson(t *testing.T) {
 }
 
 func TestUnsupportedMethod(t *testing.T) {
-	ms := NewMemStore("")
+	ms := NewSimpleStore("")
 	s := &Server{
 		storage: ms,
 	}
@@ -213,7 +213,7 @@ func TestUnsupportedMethod(t *testing.T) {
 }
 
 func TestNewServer(t *testing.T) {
-	ms := NewMemStore("")
+	ms := NewSimpleStore("")
 	sm := http.NewServeMux()
 	s := NewServer(sm, ms, "foo")
 	ts := httptest.NewServer(s)

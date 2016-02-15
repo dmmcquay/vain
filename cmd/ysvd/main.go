@@ -96,10 +96,9 @@ func main() {
 	}
 	log.Printf("serving at: http://%s:%d/", hostname, c.Port)
 	sm := http.NewServeMux()
-	ms := vain.NewMemStore(c.DB)
+	ms := vain.NewSimpleStore(c.DB)
 	if err := ms.Load(); err != nil {
-		log.Printf("unable to load db: %v", err)
-		os.Exit(1)
+		log.Printf("unable to load db: %v; creating fresh database", err)
 	}
 	vain.NewServer(sm, ms, c.Host)
 	addr := fmt.Sprintf(":%d", c.Port)

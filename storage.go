@@ -35,8 +35,8 @@ type SimpleStore struct {
 	path string
 }
 
-// NewMemStore returns a ready-to-use SimpleStore storing json at path.
-func NewMemStore(path string) *SimpleStore {
+// NewSimpleStore returns a ready-to-use SimpleStore storing json at path.
+func NewSimpleStore(path string) *SimpleStore {
 	return &SimpleStore{
 		path: path,
 		p:    make(map[string]Package),

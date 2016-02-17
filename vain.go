@@ -3,7 +3,10 @@
 // The executable, cmd/ysvd, is located in the respective subdirectory.
 package vain
 
-import "fmt"
+import (
+	"encoding/json"
+	"fmt"
+)
 
 type vcs int
 
@@ -61,4 +64,17 @@ func (p Package) String() string {
 		p.Vcs,
 		p.Repo,
 	)
+}
+
+func (p *Package) UnmarshalJSON(b []byte) (err error) {
+	pkg := struct {
+		Vcs  string
+		Repo string
+	}{}
+	err = json.Unmarshal(b, &pkg)
+	if err != nil {
+		return err
+	}
+	p.Vcs, p.Repo = labelToVcs[pkg.Vcs], pkg.Repo
+	return nil
 }

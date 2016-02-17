@@ -1,6 +1,6 @@
 // Package vain implements a vanity service for use by the the go tool.
 //
-// The executable, cmd/ysvd, is located in the respective subdirectory.
+// The executable, cmd/vaind, is located in the respective subdirectory.
 package vain
 
 import (

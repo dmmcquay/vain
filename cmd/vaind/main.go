@@ -1,5 +1,5 @@
 /*
-ysvd, a webserver for hosting go get vanity urls.
+vaind, a webserver for hosting go get vanity urls.
 
 The go get command searches for the following header when searching for
 packages:
@@ -13,7 +13,7 @@ https://golang.org/cmd/go/#hdr-Remote_import_paths
 
 API
 
-Assume an instance of ysvd at example.org. In order to add a package
+Assume an instance of vaind at example.org. In order to add a package
 example.org/foo that points at bitbucket.org/example/foo (a mercurial
 repository) POST the following json object:
 
@@ -33,10 +33,6 @@ that looks like:
 
 The json object sent to server can have two fields: "repo" and "vcs". "repo" is
 required; leaving off the "vcs" member defaults to "git".
-
-Naming
-
-The "ysv" in ysvd stands for You're so Vain, the song by Carly Simon.
 */
 package main
 
@@ -51,13 +47,13 @@ import (
 	"github.com/kelseyhightower/envconfig"
 )
 
-const usage = `ysvd
+const usage = `vaind
 
 environment vars:
 
-YSV_PORT: tcp listen port
-YSV_HOST: hostname to use
-YSV_DB: path to json database
+VAIN_PORT: tcp listen port
+VAIN_HOST: hostname to use
+VAIN_DB: path to json database
 `
 
 type config struct {

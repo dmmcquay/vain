@@ -1,11 +1,11 @@
 # vain
 
-`ysvd` is a vanity url server for use by the `go` tool.
+`vaind` is a vanity url server for use by the `go` tool.
 
 ## installation
 
-    $ go get mcquay.me/vain/cmd/ysvd
+    $ go get mcquay.me/vain/cmd/vaind
 
 ## running server
 
-    $ ysvd
+    $ vaind

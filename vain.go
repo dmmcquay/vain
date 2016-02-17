@@ -13,17 +13,27 @@ const (
 
 	// Hg is mercurial
 	Hg
+
+	// Svn
+	Svn
+
+	// Bazaar
+	Bzr
 )
 
 var vcss = [...]string{
 	"git",
 	"mercurial",
+	"svn",
+	"bazaar",
 }
 
 var labelToVcs = map[string]vcs{
 	"git":       Git,
 	"mercurial": Hg,
 	"hg":        Hg,
+	"svn":       Svn,
+	"bazaar":    Bzr,
 }
 
 // String returns the name of the vcs ("git", "mercurial", ...).

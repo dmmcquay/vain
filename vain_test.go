@@ -28,6 +28,8 @@ func TestVcsStrings(t *testing.T) {
 	}{
 		{fmt.Sprintf("%+v", Git), "git"},
 		{fmt.Sprintf("%+v", Hg), "mercurial"},
+		{fmt.Sprintf("%+v", Svn), "svn"},
+		{fmt.Sprintf("%+v", Bzr), "bazaar"},
 	}
 	for _, test := range tests {
 		if test.got != test.want {

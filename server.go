@@ -8,10 +8,9 @@ import (
 )
 
 // NewServer populates a server, adds the routes, and returns it for use.
-func NewServer(sm *http.ServeMux, store Storage, hostname string) *Server {
+func NewServer(sm *http.ServeMux, store Storage) *Server {
 	s := &Server{
-		storage:  store,
-		hostname: hostname,
+		storage: store,
 	}
 	sm.Handle("/", s)
 	return s
@@ -19,8 +18,7 @@ func NewServer(sm *http.ServeMux, store Storage, hostname string) *Server {
 
 // Server serves up the http.
 type Server struct {
-	hostname string
-	storage  Storage
+	storage Storage
 }
 
 func (s *Server) ServeHTTP(w http.ResponseWriter, req *http.Request) {
@@ -45,7 +43,7 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 			http.Error(w, fmt.Sprintf("invalid repository %q", req.URL.Path), http.StatusBadRequest)
 			return
 		}
-		p.path = fmt.Sprintf("%s/%s", s.hostname, strings.Trim(req.URL.Path, "/"))
+		p.path = fmt.Sprintf("%s/%s", req.Host, strings.Trim(req.URL.Path, "/"))
 		if !Valid(p.path, s.storage.All()) {
 			http.Error(w, fmt.Sprintf("invalid path; prefix already taken %q", req.URL.Path), http.StatusConflict)
 			return

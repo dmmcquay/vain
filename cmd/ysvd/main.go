@@ -62,7 +62,6 @@ YSV_DB: path to json database
 
 type config struct {
 	Port int
-	Host string
 	DB   string
 }
 
@@ -81,10 +80,6 @@ func main() {
 			os.Exit(0)
 		}
 	}
-	if c.Host == "" {
-		log.Printf("must set YSV_HOST; please run $(ysvd env) for more information")
-		os.Exit(1)
-	}
 	if c.DB == "" {
 		log.Printf("warning: in-memory db mode; if you do not want this set YSV_DB")
 	}
@@ -100,7 +95,7 @@ func main() {
 	if err := ms.Load(); err != nil {
 		log.Printf("unable to load db: %v; creating fresh database", err)
 	}
-	vain.NewServer(sm, ms, c.Host)
+	vain.NewServer(sm, ms)
 	addr := fmt.Sprintf(":%d", c.Port)
 	if err := http.ListenAndServe(addr, sm); err != nil {
 		log.Printf("problem with http server: %v", err)

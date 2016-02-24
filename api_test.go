@@ -2,21 +2,21 @@ package vain
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"strings"
 	"testing"
 )
 
 func TestAdd(t *testing.T) {
 	ms := NewSimpleStore("")
-	s := &Server{
-		storage: ms,
-	}
-	ts := httptest.NewServer(s)
-	s.hostname = ts.URL
+	sm := http.NewServeMux()
+	_ = NewServer(sm, ms)
+	ts := httptest.NewServer(sm)
 	resp, err := http.Get(ts.URL)
 	if err != nil {
 		t.Errorf("couldn't GET: %v", err)
@@ -36,8 +36,25 @@ func TestAdd(t *testing.T) {
 		t.Errorf("started with something in it; got %d, want %d", len(ms.p), 0)
 	}
 
-	good := fmt.Sprintf("%s/foo", ts.URL)
-	resp, err = http.Post(good, "application/json", strings.NewReader(`{"repo": "https://s.mcquay.me/sm/vain"}`))
+	{
+		u := fmt.Sprintf("%s/db/", ts.URL)
+		resp, err := http.Get(u)
+		if err != nil {
+			t.Error(err)
+		}
+		buf := &bytes.Buffer{}
+		io.Copy(buf, resp.Body)
+		pkgs := []Package{}
+		if err := json.NewDecoder(buf).Decode(&pkgs); err != nil {
+			t.Errorf("problem parsing json: %v, \n%q", err, buf)
+		}
+		if got, want := len(pkgs), 0; got != want {
+			t.Errorf("should have empty pkg list; got %d, want %d", got, want)
+		}
+	}
+
+	u := fmt.Sprintf("%s/foo", ts.URL)
+	resp, err = http.Post(u, "application/json", strings.NewReader(`{"repo": "https://s.mcquay.me/sm/vain"}`))
 	if err != nil {
 		t.Errorf("couldn't POST: %v", err)
 	}
@@ -46,6 +63,11 @@ func TestAdd(t *testing.T) {
 		t.Errorf("storage should have something in it; got %d, want %d", len(ms.p), 1)
 	}
 
+	ur, err := url.Parse(ts.URL)
+	if err != nil {
+		t.Error(err)
+	}
+	good := fmt.Sprintf("%s/foo", ur.Host)
 	p, ok := ms.p[good]
 	if !ok {
 		t.Fatalf("did not find package for %s; should have posted a valid package", good)
@@ -56,8 +78,8 @@ func TestAdd(t *testing.T) {
 	if want := "https://s.mcquay.me/sm/vain"; p.Repo != want {
 		t.Errorf("repo did not go through as expected; got %q, want %q", p.Repo, want)
 	}
-	if want := Git; p.Vcs != want {
-		t.Errorf("Vcs did not go through as expected; got %q, want %q", p.Vcs, want)
+	if got, want := p.Vcs, "git"; got != want {
+		t.Errorf("Vcs did not go through as expected; got %q, want %q", got, want)
 	}
 
 	resp, err = http.Get(ts.URL)
@@ -75,6 +97,23 @@ func TestAdd(t *testing.T) {
 	if got, want := strings.Count(buf.String(), "meta"), 1; got != want {
 		t.Errorf("did not find all the tags I need; got %d, want %d", got, want)
 	}
+
+	{
+		u := fmt.Sprintf("%s/db/", ts.URL)
+		resp, err := http.Get(u)
+		if err != nil {
+			t.Error(err)
+		}
+		buf := &bytes.Buffer{}
+		io.Copy(buf, resp.Body)
+		pkgs := []Package{}
+		if err := json.NewDecoder(buf).Decode(&pkgs); err != nil {
+			t.Errorf("problem parsing json: %v, \n%q", err, buf)
+		}
+		if got, want := len(pkgs), 1; got != want {
+			t.Errorf("should (mildly) populated pkg list; got %d, want %d", got, want)
+		}
+	}
 }
 
 func TestInvalidPath(t *testing.T) {
@@ -83,7 +122,6 @@ func TestInvalidPath(t *testing.T) {
 		storage: ms,
 	}
 	ts := httptest.NewServer(s)
-	s.hostname = ts.URL
 
 	resp, err := http.Post(ts.URL, "application/json", strings.NewReader(`{"repo": "https://s.mcquay.me/sm/vain"}`))
 	if err != nil {
@@ -103,7 +141,6 @@ func TestCannotDuplicateExistingPath(t *testing.T) {
 		storage: ms,
 	}
 	ts := httptest.NewServer(s)
-	s.hostname = ts.URL
 
 	url := fmt.Sprintf("%s/foo", ts.URL)
 	resp, err := http.Post(url, "application/json", strings.NewReader(`{"repo": "https://s.mcquay.me/sm/vain"}`))
@@ -128,7 +165,6 @@ func TestCannotAddExistingSubPath(t *testing.T) {
 		storage: ms,
 	}
 	ts := httptest.NewServer(s)
-	s.hostname = ts.URL
 
 	url := fmt.Sprintf("%s/foo/bar", ts.URL)
 	resp, err := http.Post(url, "application/json", strings.NewReader(`{"repo": "https://s.mcquay.me/sm/vain"}`))
@@ -156,7 +192,6 @@ func TestMissingRepo(t *testing.T) {
 		storage: ms,
 	}
 	ts := httptest.NewServer(s)
-	s.hostname = ts.URL
 	url := fmt.Sprintf("%s/foo", ts.URL)
 	resp, err := http.Post(url, "application/json", strings.NewReader(`{}`))
 	if err != nil {
@@ -176,7 +211,6 @@ func TestBadJson(t *testing.T) {
 		storage: ms,
 	}
 	ts := httptest.NewServer(s)
-	s.hostname = ts.URL
 	url := fmt.Sprintf("%s/foo", ts.URL)
 	resp, err := http.Post(url, "application/json", strings.NewReader(`{`))
 	if err != nil {
@@ -196,7 +230,6 @@ func TestUnsupportedMethod(t *testing.T) {
 		storage: ms,
 	}
 	ts := httptest.NewServer(s)
-	s.hostname = ts.URL
 	url := fmt.Sprintf("%s/foo", ts.URL)
 	client := &http.Client{}
 	req, err := http.NewRequest("PUT", url, nil)
@@ -215,9 +248,8 @@ func TestUnsupportedMethod(t *testing.T) {
 func TestNewServer(t *testing.T) {
 	ms := NewSimpleStore("")
 	sm := http.NewServeMux()
-	s := NewServer(sm, ms, "foo")
+	s := NewServer(sm, ms)
 	ts := httptest.NewServer(s)
-	s.hostname = ts.URL
 	url := fmt.Sprintf("%s/foo", ts.URL)
 	client := &http.Client{}
 	req, err := http.NewRequest("PUT", url, nil)

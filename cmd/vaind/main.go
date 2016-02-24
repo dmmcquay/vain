@@ -65,7 +65,7 @@ func main() {
 	c := &config{
 		Port: 4040,
 	}
-	if err := envconfig.Process("ysv", c); err != nil {
+	if err := envconfig.Process("vain", c); err != nil {
 		fmt.Fprintf(os.Stderr, "problem processing environment: %v", err)
 		os.Exit(1)
 	}
@@ -77,7 +77,7 @@ func main() {
 		}
 	}
 	if c.DB == "" {
-		log.Printf("warning: in-memory db mode; if you do not want this set YSV_DB")
+		log.Printf("warning: in-memory db mode; if you do not want this set VAIN_DB")
 	}
 	hostname := "localhost"
 	if hn, err := os.Hostname(); err != nil {

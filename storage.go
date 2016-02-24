@@ -107,5 +107,14 @@ func (ms *SimpleStore) Load() error {
 		return err
 	}
 	defer f.Close()
-	return json.NewDecoder(f).Decode(&ms.p)
+
+	in := map[string]Package{}
+	if err := json.NewDecoder(f).Decode(&in); err != nil {
+		return err
+	}
+	for k, v := range in {
+		v.path = k
+		ms.p[k] = v
+	}
+	return nil
 }

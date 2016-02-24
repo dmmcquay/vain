@@ -7,6 +7,7 @@ import (
 
 func TestString(t *testing.T) {
 	p := Package{
+		Vcs:  "git",
 		path: "mcquay.me/bps",
 		Repo: "https://s.mcquay.me/sm/bps",
 	}
@@ -21,19 +22,22 @@ func TestString(t *testing.T) {
 	}
 }
 
-func TestVcsStrings(t *testing.T) {
+func TestSupportedVcsStrings(t *testing.T) {
 	tests := []struct {
-		got  string
-		want string
+		in   string
+		want bool
 	}{
-		{fmt.Sprintf("%+v", Git), "git"},
-		{fmt.Sprintf("%+v", Hg), "mercurial"},
-		{fmt.Sprintf("%+v", Svn), "svn"},
-		{fmt.Sprintf("%+v", Bzr), "bazaar"},
+		{"hg", true},
+		{"git", true},
+		{"bzr", true},
+
+		{"", false},
+		{"bazar", false},
+		{"mercurial", false},
 	}
 	for _, test := range tests {
-		if test.got != test.want {
-			t.Errorf("incorrect conversion of vain.Vcs -> string; got %q, want %q", test.got, test.want)
+		if got, want := valid(test.in), test.want; got != want {
+			t.Errorf("%s: %t is incorrect validity", test.in, got)
 		}
 	}
 }

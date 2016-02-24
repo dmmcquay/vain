@@ -12,7 +12,7 @@ func NewServer(sm *http.ServeMux, store Storage) *Server {
 	s := &Server{
 		storage: store,
 	}
-	sm.Handle("/", s)
+	addRoutes(sm, s)
 	return s
 }
 
@@ -43,6 +43,13 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 			http.Error(w, fmt.Sprintf("invalid repository %q", req.URL.Path), http.StatusBadRequest)
 			return
 		}
+		if p.Vcs == "" {
+			p.Vcs = "git"
+		}
+		if !valid(p.Vcs) {
+			http.Error(w, fmt.Sprintf("invalid vcs %q", p.Vcs), http.StatusBadRequest)
+			return
+		}
 		p.path = fmt.Sprintf("%s/%s", req.Host, strings.Trim(req.URL.Path, "/"))
 		if !Valid(p.path, s.storage.All()) {
 			http.Error(w, fmt.Sprintf("invalid path; prefix already taken %q", req.URL.Path), http.StatusConflict)
@@ -55,4 +62,15 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	default:
 		http.Error(w, fmt.Sprintf("unsupported method %q; accepted: POST, GET", req.Method), http.StatusMethodNotAllowed)
 	}
+}
+
+func (s *Server) db(w http.ResponseWriter, req *http.Request) {
+	all := s.storage.All()
+	w.Header().Set("Content-type", "application/json")
+	json.NewEncoder(w).Encode(&all)
+}
+
+func addRoutes(sm *http.ServeMux, s *Server) {
+	sm.Handle("/", s)
+	sm.HandleFunc("/db/", s.db)
 }

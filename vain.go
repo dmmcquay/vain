@@ -3,44 +3,19 @@
 // The executable, cmd/vaind, is located in the respective subdirectory.
 package vain
 
-import (
-	"encoding/json"
-	"fmt"
-)
+import "fmt"
 
-type vcs int
-
-const (
-	// Git is the default Vcs.
-	Git vcs = iota
-
-	// Hg is mercurial
-	Hg
-
-	// Svn
-	Svn
-
-	// Bazaar
-	Bzr
-)
-
-var vcss = [...]string{
-	"git",
-	"mercurial",
-	"svn",
-	"bazaar",
+var vcss = map[string]bool{
+	"hg":  true,
+	"git": true,
+	"bzr": true,
+	"svn": true,
 }
 
-var labelToVcs = map[string]vcs{
-	"git":       Git,
-	"mercurial": Hg,
-	"hg":        Hg,
-	"svn":       Svn,
-	"bazaar":    Bzr,
+func valid(vcs string) bool {
+	_, ok := vcss[vcs]
+	return ok
 }
-
-// String returns the name of the vcs ("git", "mercurial", ...).
-func (v vcs) String() string { return vcss[v] }
 
 // Package stores the three pieces of information needed to create the meta
 // tag. Two of these (Vcs and Repo) are stored explicitly, and the third is
@@ -49,8 +24,8 @@ func (v vcs) String() string { return vcss[v] }
 //
 // https://golang.org/cmd/go/#hdr-Remote_import_paths
 type Package struct {
-	//Vcs (version control system) supported: "git", "mercurial"
-	Vcs vcs `json:"vcs"`
+	//Vcs (version control system) supported: "hg", "git", "bzr", "svn"
+	Vcs string `json:"vcs"`
 	// Repo: the remote repository url
 	Repo string `json:"repo"`
 
@@ -64,17 +39,4 @@ func (p Package) String() string {
 		p.Vcs,
 		p.Repo,
 	)
-}
-
-func (p *Package) UnmarshalJSON(b []byte) (err error) {
-	pkg := struct {
-		Vcs  string
-		Repo string
-	}{}
-	err = json.Unmarshal(b, &pkg)
-	if err != nil {
-		return err
-	}
-	p.Vcs, p.Repo = labelToVcs[pkg.Vcs], pkg.Repo
-	return nil
 }

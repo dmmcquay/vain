@@ -33,6 +33,10 @@ that looks like:
 
 The json object sent to server can have two fields: "repo" and "vcs". "repo" is
 required; leaving off the "vcs" member defaults to "git".
+
+In order to delete a package:
+
+	DELETE /<package name>
 */
 package main
 

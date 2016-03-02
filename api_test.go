@@ -224,6 +224,23 @@ func TestBadJson(t *testing.T) {
 	}
 }
 
+func TestBadVcs(t *testing.T) {
+	ms := NewSimpleStore("")
+	s := &Server{
+		storage: ms,
+	}
+	ts := httptest.NewServer(s)
+	url := fmt.Sprintf("%s/foo", ts.URL)
+	resp, err := http.Post(url, "application/json", strings.NewReader(`{"vcs": "bitbucket", "repo": "https://s.mcquay.me/sm/vain"}`))
+	if err != nil {
+		t.Errorf("couldn't POST: %v", err)
+	}
+	resp.Body.Close()
+	if got, want := resp.StatusCode, http.StatusBadRequest; got != want {
+		t.Errorf("should have reported bad vcs specified; got %v, want %v", http.StatusText(got), http.StatusText(want))
+	}
+}
+
 func TestUnsupportedMethod(t *testing.T) {
 	ms := NewSimpleStore("")
 	s := &Server{

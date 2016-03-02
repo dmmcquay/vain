@@ -50,14 +50,14 @@ func (ms *SimpleStore) Contains(name string) bool {
 }
 
 // Add adds p to the SimpleStore.
-func (ms *SimpleStore) Add(p Package) error {
-	ms.l.Lock()
-	ms.p[p.path] = p
-	ms.l.Unlock()
+func (ss *SimpleStore) Add(p Package) error {
+	ss.l.Lock()
+	ss.p[p.path] = p
+	ss.l.Unlock()
 	m := ""
-	if err := ms.Save(); err != nil {
+	if err := ss.Save(); err != nil {
 		m = fmt.Sprintf("unable to store db: %v", err)
-		if err := ms.Remove(p.path); err != nil {
+		if err := ss.Remove(p.path); err != nil {
 			m = fmt.Sprintf("%s\nto add insult to injury, could not delete package: %v\n", m, err)
 		}
 		return errors.New(m)
@@ -66,49 +66,49 @@ func (ms *SimpleStore) Add(p Package) error {
 }
 
 // Remove removes p from the SimpleStore.
-func (ms *SimpleStore) Remove(path string) error {
-	ms.l.Lock()
-	delete(ms.p, path)
-	ms.l.Unlock()
+func (ss *SimpleStore) Remove(path string) error {
+	ss.l.Lock()
+	delete(ss.p, path)
+	ss.l.Unlock()
 	return nil
 }
 
 // All returns all current packages.
-func (ms *SimpleStore) All() []Package {
+func (ss *SimpleStore) All() []Package {
 	r := []Package{}
-	ms.l.RLock()
-	for _, p := range ms.p {
+	ss.l.RLock()
+	for _, p := range ss.p {
 		r = append(r, p)
 	}
-	ms.l.RUnlock()
+	ss.l.RUnlock()
 	return r
 }
 
 // Save writes the db to disk.
-func (ms *SimpleStore) Save() error {
+func (ss *SimpleStore) Save() error {
 	// running in-memory only
-	if ms.path == "" {
+	if ss.path == "" {
 		return nil
 	}
-	ms.dbl.Lock()
-	defer ms.dbl.Unlock()
-	f, err := os.Create(ms.path)
+	ss.dbl.Lock()
+	defer ss.dbl.Unlock()
+	f, err := os.Create(ss.path)
 	if err != nil {
 		return err
 	}
 	defer f.Close()
-	return json.NewEncoder(f).Encode(ms.p)
+	return json.NewEncoder(f).Encode(ss.p)
 }
 
-// Load reads the db from disk and populates ms.
-func (ms *SimpleStore) Load() error {
+// Load reads the db from disk and populates ss.
+func (ss *SimpleStore) Load() error {
 	// running in-memory only
-	if ms.path == "" {
+	if ss.path == "" {
 		return nil
 	}
-	ms.dbl.Lock()
-	defer ms.dbl.Unlock()
-	f, err := os.Open(ms.path)
+	ss.dbl.Lock()
+	defer ss.dbl.Unlock()
+	f, err := os.Open(ss.path)
 	if err != nil {
 		return err
 	}
@@ -120,7 +120,7 @@ func (ms *SimpleStore) Load() error {
 	}
 	for k, v := range in {
 		v.path = k
-		ms.p[k] = v
+		ss.p[k] = v
 	}
 	return nil
 }

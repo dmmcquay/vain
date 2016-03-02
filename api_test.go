@@ -264,3 +264,52 @@ func TestNewServer(t *testing.T) {
 		t.Errorf("should have failed to post at bad route; got %s, want %s", resp.Status, http.StatusText(want))
 	}
 }
+
+func TestDelete(t *testing.T) {
+	ms := NewSimpleStore("")
+	sm := http.NewServeMux()
+	_ = NewServer(sm, ms)
+	ts := httptest.NewServer(sm)
+	resp, err := http.Get(ts.URL)
+	if err != nil {
+		t.Errorf("couldn't GET: %v", err)
+	}
+	resp.Body.Close()
+	if len(ms.p) != 0 {
+		t.Errorf("started with something in it; got %d, want %d", len(ms.p), 0)
+	}
+
+	u := fmt.Sprintf("%s/foo", ts.URL)
+	resp, err = http.Post(u, "application/json", strings.NewReader(`{"repo": "https://s.mcquay.me/sm/vain"}`))
+	if err != nil {
+		t.Errorf("couldn't POST: %v", err)
+	}
+
+	if got, want := len(ms.p), 1; got != want {
+		t.Errorf("storage should have something in it; got %d, want %d", got, want)
+	}
+
+	{
+		// test not found
+		u := fmt.Sprintf("%s/bar", ts.URL)
+		client := &http.Client{}
+		req, err := http.NewRequest("DELETE", u, nil)
+		resp, err = client.Do(req)
+		if err != nil {
+			t.Errorf("couldn't POST: %v", err)
+		}
+		if got, want := resp.StatusCode, http.StatusNotFound; got != want {
+			t.Errorf("should have not been able to delete unknown package; got %v, want %v", http.StatusText(got), http.StatusText(want))
+		}
+	}
+	client := &http.Client{}
+	req, err := http.NewRequest("DELETE", u, nil)
+	resp, err = client.Do(req)
+	if err != nil {
+		t.Errorf("couldn't POST: %v", err)
+	}
+
+	if got, want := len(ms.p), 0; got != want {
+		t.Errorf("storage should be empty; got %d, want %d", got, want)
+	}
+}

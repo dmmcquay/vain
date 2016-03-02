@@ -21,6 +21,7 @@ func Valid(p string, packages []Package) bool {
 
 // Storage is a shim to allow for alternate storage types.
 type Storage interface {
+	Contains(name string) bool
 	Add(p Package) error
 	Remove(path string) error
 	All() []Package
@@ -41,6 +42,11 @@ func NewSimpleStore(path string) *SimpleStore {
 		path: path,
 		p:    make(map[string]Package),
 	}
+}
+
+func (ms *SimpleStore) Contains(name string) bool {
+	_, contains := ms.p[name]
+	return contains
 }
 
 // Add adds p to the SimpleStore.

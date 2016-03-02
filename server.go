@@ -59,8 +59,18 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 			http.Error(w, fmt.Sprintf("unable to add package: %v", err), http.StatusInternalServerError)
 			return
 		}
+	case "DELETE":
+		p := fmt.Sprintf("%s/%s", req.Host, strings.Trim(req.URL.Path, "/"))
+		if !s.storage.Contains(p) {
+			http.Error(w, fmt.Sprintf("package %q not found", p), http.StatusNotFound)
+			return
+		}
+		if err := s.storage.Remove(p); err != nil {
+			http.Error(w, fmt.Sprintf("unable to delete package: %v", err), http.StatusInternalServerError)
+			return
+		}
 	default:
-		http.Error(w, fmt.Sprintf("unsupported method %q; accepted: POST, GET", req.Method), http.StatusMethodNotAllowed)
+		http.Error(w, fmt.Sprintf("unsupported method %q; accepted: POST, GET, DELETE", req.Method), http.StatusMethodNotAllowed)
 	}
 }
 

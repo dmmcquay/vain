@@ -94,7 +94,7 @@ func TestAdd(t *testing.T) {
 	if _, err := io.Copy(buf, resp.Body); err != nil {
 		t.Errorf("couldn't read content from server: %v", err)
 	}
-	if got, want := strings.Count(buf.String(), "meta"), 1; got != want {
+	if got, want := strings.Count(buf.String(), "<meta"), 1; got != want {
 		t.Errorf("did not find all the tags I need; got %d, want %d", got, want)
 	}
 

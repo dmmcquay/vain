@@ -28,7 +28,7 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		for _, p := range s.storage.All() {
 			fmt.Fprintf(w, "%s\n", p)
 		}
-		fmt.Fprintf(w, "</head>\n</html>\n")
+		fmt.Fprintf(w, "</head>\n<body><p>go tool metadata in head</p>\n</html>\n")
 	case "POST":
 		if req.URL.Path == "/" {
 			http.Error(w, fmt.Sprintf("invalid path %q", req.URL.Path), http.StatusBadRequest)

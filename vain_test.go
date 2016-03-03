@@ -55,13 +55,6 @@ func TestValid(t *testing.T) {
 		},
 		{
 			pkgs: []Package{
-				{path: ""},
-			},
-			in:   "bobo",
-			want: true,
-		},
-		{
-			pkgs: []Package{
 				{path: "bobo"},
 			},
 			in:   "bobo",
@@ -72,6 +65,35 @@ func TestValid(t *testing.T) {
 				{path: "a/b/c"},
 			},
 			in:   "a/b/c",
+			want: false,
+		},
+		{
+			pkgs: []Package{
+				{path: "a/b/c"},
+			},
+			in:   "a/b",
+			want: false,
+		},
+		{
+			pkgs: []Package{
+				{path: "name/db"},
+				{path: "name/lib"},
+			},
+			in:   "name/foo",
+			want: true,
+		},
+		{
+			pkgs: []Package{
+				{path: "a"},
+			},
+			in:   "a/b",
+			want: false,
+		},
+		{
+			pkgs: []Package{
+				{path: "foo"},
+			},
+			in:   "foo/bar",
 			want: false,
 		},
 		{

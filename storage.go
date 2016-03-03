@@ -12,7 +12,7 @@ import (
 // Valid checks that p will not confuse the go tool if added to packages.
 func Valid(p string, packages []Package) bool {
 	for _, pkg := range packages {
-		if strings.HasPrefix(pkg.path, p) {
+		if strings.HasPrefix(pkg.path, p) || strings.HasPrefix(p, pkg.path) {
 			return false
 		}
 	}

@@ -51,21 +51,45 @@ import (
 	"github.com/kelseyhightower/envconfig"
 )
 
-const usage = `vaind
-
-environment vars:
-
-VAIN_PORT: tcp listen port
-VAIN_HOST: hostname to use
-VAIN_DB: path to json database
-`
+const usage = "vaind [init] <dbname>"
 
 type config struct {
 	Port int
-	DB   string
 }
 
 func main() {
+	if len(os.Args) < 2 {
+		fmt.Fprintf(os.Stderr, "%s\n", usage)
+		os.Exit(1)
+	}
+
+	if os.Args[1] == "init" {
+		if len(os.Args) != 3 {
+			fmt.Fprintf(os.Stderr, "missing db name: %s\n", usage)
+			os.Exit(1)
+		}
+
+		db, err := vain.NewDB(os.Args[2])
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "couldn't open db: %v\n", err)
+			os.Exit(1)
+		}
+		defer db.Close()
+
+		if err := db.Init(); err != nil {
+			fmt.Fprintf(os.Stderr, "problem initializing the db: %v\n", err)
+			os.Exit(1)
+		}
+
+		os.Exit(0)
+	}
+
+	db, err := vain.NewDB(os.Args[1])
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "couldn't open db: %v\n", err)
+		os.Exit(1)
+	}
+
 	c := &config{
 		Port: 4040,
 	}
@@ -80,9 +104,6 @@ func main() {
 			os.Exit(0)
 		}
 	}
-	if c.DB == "" {
-		log.Printf("warning: in-memory db mode; if you do not want this set VAIN_DB")
-	}
 	hostname := "localhost"
 	if hn, err := os.Hostname(); err != nil {
 		log.Printf("problem getting hostname:", err)
@@ -91,11 +112,7 @@ func main() {
 	}
 	log.Printf("serving at: http://%s:%d/", hostname, c.Port)
 	sm := http.NewServeMux()
-	ms := vain.NewSimpleStore(c.DB)
-	if err := ms.Load(); err != nil {
-		log.Printf("unable to load db: %v; creating fresh database", err)
-	}
-	vain.NewServer(sm, ms)
+	vain.NewServer(sm, db)
 	addr := fmt.Sprintf(":%d", c.Port)
 	if err := http.ListenAndServe(addr, sm); err != nil {
 		log.Printf("problem with http server: %v", err)

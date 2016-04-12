@@ -1,6 +1,7 @@
 package vain
 
 import (
+	"errors"
 	"fmt"
 	"testing"
 )
@@ -8,7 +9,7 @@ import (
 func TestString(t *testing.T) {
 	p := Package{
 		Vcs:  "git",
-		path: "mcquay.me/bps",
+		Path: "mcquay.me/bps",
 		Repo: "https://s.mcquay.me/sm/bps",
 	}
 	got := fmt.Sprintf("%s", p)
@@ -55,59 +56,59 @@ func TestValid(t *testing.T) {
 		},
 		{
 			pkgs: []Package{
-				{path: "bobo"},
+				{Path: "bobo"},
 			},
 			in:   "bobo",
 			want: false,
 		},
 		{
 			pkgs: []Package{
-				{path: "a/b/c"},
+				{Path: "a/b/c"},
 			},
 			in:   "a/b/c",
 			want: false,
 		},
 		{
 			pkgs: []Package{
-				{path: "a/b/c"},
+				{Path: "a/b/c"},
 			},
 			in:   "a/b",
 			want: false,
 		},
 		{
 			pkgs: []Package{
-				{path: "name/db"},
-				{path: "name/lib"},
+				{Path: "name/db"},
+				{Path: "name/lib"},
 			},
 			in:   "name/foo",
 			want: true,
 		},
 		{
 			pkgs: []Package{
-				{path: "a"},
+				{Path: "a"},
 			},
 			in:   "a/b",
 			want: false,
 		},
 		{
 			pkgs: []Package{
-				{path: "foo"},
+				{Path: "foo"},
 			},
 			in:   "foo/bar",
 			want: false,
 		},
 		{
 			pkgs: []Package{
-				{path: "foo/bar"},
-				{path: "foo/baz"},
+				{Path: "foo/bar"},
+				{Path: "foo/baz"},
 			},
 			in:   "foo",
 			want: false,
 		},
 		{
 			pkgs: []Package{
-				{path: "bilbo"},
-				{path: "frodo"},
+				{Path: "bilbo"},
+				{Path: "frodo"},
 			},
 			in:   "foo/bar/baz",
 			want: true,
@@ -117,6 +118,54 @@ func TestValid(t *testing.T) {
 		got := Valid(test.in, test.pkgs)
 		if got != test.want {
 			t.Errorf("Incorrect testing of %q against %#v; got %t, want %t", test.in, test.pkgs, got, test.want)
+		}
+	}
+}
+
+func TestNamespaceParsing(t *testing.T) {
+	tests := []struct {
+		input string
+		want  string
+		err   error
+	}{
+		{
+			input: "/sm/foo",
+			want:  "sm",
+		},
+		{
+			input: "/a/b/c/d",
+			want:  "a",
+		},
+		{
+			input: "/dm/bar",
+			want:  "dm",
+		},
+		{
+			input: "/ud",
+			want:  "ud",
+		},
+		// test stripping
+		{
+			input: "ud",
+			want:  "ud",
+		},
+		{
+			input: "/",
+			err:   errors.New("should find no namespace"),
+		},
+		{
+			input: "",
+			err:   errors.New("should find no namespace"),
+		},
+	}
+	for _, test := range tests {
+		got, err := parseNamespace(test.input)
+		if err != nil && test.err == nil {
+			t.Errorf("unexpected error parsing %q; got %q, want %q, error: %v", test.input, got, test.want, err)
+		}
+
+		if got != test.want {
+			t.Errorf("parse failure: got %q, want %q", got, test.want)
 		}
 	}
 }

@@ -3,7 +3,15 @@
 // The executable, cmd/vaind, is located in the respective subdirectory.
 package vain
 
-import "fmt"
+import (
+	"bytes"
+	"crypto/rand"
+	"encoding/hex"
+	"errors"
+	"fmt"
+	"io"
+	"strings"
+)
 
 var vcss = map[string]bool{
 	"hg":  true,
@@ -29,14 +37,45 @@ type Package struct {
 	// Repo: the remote repository url
 	Repo string `json:"repo"`
 
-	path string
+	Path string `json:"path"`
+	Ns   string `json:"-"`
 }
 
 func (p Package) String() string {
 	return fmt.Sprintf(
 		"<meta name=\"go-import\" content=\"%s %s %s\">",
-		p.path,
+		p.Path,
 		p.Vcs,
 		p.Repo,
 	)
+}
+
+// Valid checks that p will not confuse the go tool if added to packages.
+func Valid(p string, packages []Package) bool {
+	for _, pkg := range packages {
+		if strings.HasPrefix(pkg.Path, p) || strings.HasPrefix(p, pkg.Path) {
+			return false
+		}
+	}
+	return true
+}
+
+func parseNamespace(path string) (string, error) {
+	path = strings.TrimLeft(path, "/")
+	if path == "" {
+		return "", errors.New("path does not contain namespace")
+	}
+	elems := strings.Split(path, "/")
+	return elems[0], nil
+}
+
+func FreshToken() string {
+	buf := &bytes.Buffer{}
+	io.Copy(buf, io.LimitReader(rand.Reader, 6))
+	s := hex.EncodeToString(buf.Bytes())
+	r := []string{}
+	for i := 0; i < len(s)/4; i++ {
+		r = append(r, s[i*4:(i+1)*4])
+	}
+	return strings.Join(r, "-")
 }

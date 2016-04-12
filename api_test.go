@@ -13,31 +13,55 @@ import (
 )
 
 func TestAdd(t *testing.T) {
-	ms := NewSimpleStore("")
+	db, done := testDB(t)
+	if db == nil {
+		t.Fatalf("could not create temp db")
+	}
+	defer done()
+
 	sm := http.NewServeMux()
-	_ = NewServer(sm, ms)
+	NewServer(sm, db)
 	ts := httptest.NewServer(sm)
+	tok, err := db.addUser("sm@example.org")
+	if err != nil {
+		t.Error("failure to add user: %v", err)
+	}
+
 	resp, err := http.Get(ts.URL)
 	if err != nil {
 		t.Errorf("couldn't GET: %v", err)
 	}
 	resp.Body.Close()
-	if len(ms.p) != 0 {
-		t.Errorf("started with something in it; got %d, want %d", len(ms.p), 0)
-	}
 
-	bad := ts.URL
-	resp, err = http.Post(bad, "application/json", strings.NewReader(`{"repo": "https://s.mcquay.me/sm/vain"}`))
-	if err != nil {
-		t.Errorf("couldn't POST: %v", err)
-	}
-	resp.Body.Close()
-	if len(ms.p) != 0 {
-		t.Errorf("started with something in it; got %d, want %d", len(ms.p), 0)
+	if got, want := len(db.Pkgs()), 0; got != want {
+		t.Errorf("started with something in it; got %d, want %d", got, want)
 	}
 
 	{
-		u := fmt.Sprintf("%s/db/", ts.URL)
+		bad := ts.URL
+		body := strings.NewReader(`{"repo": "https://s.mcquay.me/sm/vain"}`)
+		req, err := http.NewRequest("POST", bad, body)
+		req.Header.Add("Content-Type", "application/json")
+		req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", tok))
+		resp, err := http.DefaultClient.Do(req)
+		if err != nil {
+			t.Errorf("couldn't POST: %v", err)
+		}
+		if got, want := resp.StatusCode, http.StatusBadRequest; got != want {
+			buf := &bytes.Buffer{}
+			io.Copy(buf, resp.Body)
+			t.Errorf("bad request got incorrect status: got %d, want %d", got, want)
+			t.Log("%s", buf)
+		}
+		resp.Body.Close()
+
+		if got, want := len(db.Pkgs()), 0; got != want {
+			t.Errorf("started with something in it; got %d, want %d", got, want)
+		}
+	}
+
+	{
+		u := fmt.Sprintf("%s/%s", ts.URL, prefix["pkgs"])
 		resp, err := http.Get(u)
 		if err != nil {
 			t.Error(err)
@@ -53,33 +77,51 @@ func TestAdd(t *testing.T) {
 		}
 	}
 
-	u := fmt.Sprintf("%s/foo", ts.URL)
-	resp, err = http.Post(u, "application/json", strings.NewReader(`{"repo": "https://s.mcquay.me/sm/vain"}`))
-	if err != nil {
-		t.Errorf("couldn't POST: %v", err)
-	}
+	{
 
-	if len(ms.p) != 1 {
-		t.Errorf("storage should have something in it; got %d, want %d", len(ms.p), 1)
-	}
+		u := fmt.Sprintf("%s/foo", ts.URL)
+		body := strings.NewReader(`{"repo": "https://s.mcquay.me/sm/vain"}`)
+		req, err := http.NewRequest("POST", u, body)
+		req.Header.Add("Content-Type", "application/json")
+		req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", tok))
+		resp, err := http.DefaultClient.Do(req)
+		if err != nil {
+			t.Errorf("problem performing request: %v", err)
+		}
+		buf := &bytes.Buffer{}
+		io.Copy(buf, resp.Body)
+		t.Logf("%v", buf)
+		resp.Body.Close()
 
-	ur, err := url.Parse(ts.URL)
-	if err != nil {
-		t.Error(err)
-	}
-	good := fmt.Sprintf("%s/foo", ur.Host)
-	p, ok := ms.p[good]
-	if !ok {
-		t.Fatalf("did not find package for %s; should have posted a valid package", good)
-	}
-	if p.path != good {
-		t.Errorf("package name did not go through as expected; got %q, want %q", p.path, good)
-	}
-	if want := "https://s.mcquay.me/sm/vain"; p.Repo != want {
-		t.Errorf("repo did not go through as expected; got %q, want %q", p.Repo, want)
-	}
-	if got, want := p.Vcs, "git"; got != want {
-		t.Errorf("Vcs did not go through as expected; got %q, want %q", got, want)
+		if got, want := len(db.Pkgs()), 1; got != want {
+			t.Errorf("pkgs should have something in it; got %d, want %d", got, want)
+		}
+		t.Logf("packages: %v", db.Pkgs())
+
+		ur, err := url.Parse(ts.URL)
+		if err != nil {
+			t.Error(err)
+		}
+
+		good := fmt.Sprintf("%s/foo", ur.Host)
+
+		if !db.PackageExists(good) {
+			t.Fatalf("did not find package for %s; should have posted a valid package", good)
+		}
+		p, err := db.Package(good)
+		t.Logf("%+v", p)
+		if err != nil {
+			t.Fatalf("problem getting package: %v", err)
+		}
+		if got, want := p.Path, good; got != want {
+			t.Errorf("package name did not go through as expected; got %q, want %q", got, want)
+		}
+		if got, want := p.Repo, "https://s.mcquay.me/sm/vain"; got != want {
+			t.Errorf("repo did not go through as expected; got %q, want %q", got, want)
+		}
+		if got, want := p.Vcs, "git"; got != want {
+			t.Errorf("Vcs did not go through as expected; got %q, want %q", got, want)
+		}
 	}
 
 	resp, err = http.Get(ts.URL)
@@ -99,7 +141,7 @@ func TestAdd(t *testing.T) {
 	}
 
 	{
-		u := fmt.Sprintf("%s/db/", ts.URL)
+		u := fmt.Sprintf("%s/%s", ts.URL, prefix["pkgs"])
 		resp, err := http.Get(u)
 		if err != nil {
 			t.Error(err)
@@ -117,121 +159,248 @@ func TestAdd(t *testing.T) {
 }
 
 func TestInvalidPath(t *testing.T) {
-	ms := NewSimpleStore("")
-	s := &Server{
-		storage: ms,
+	db, done := testDB(t)
+	if db == nil {
+		t.Fatalf("could not create temp db")
 	}
-	ts := httptest.NewServer(s)
+	defer done()
 
-	resp, err := http.Post(ts.URL, "application/json", strings.NewReader(`{"repo": "https://s.mcquay.me/sm/vain"}`))
+	sm := http.NewServeMux()
+	NewServer(sm, db)
+	ts := httptest.NewServer(sm)
+	tok, err := db.addUser("sm@example.org")
+	if err != nil {
+		t.Error("failure to add user: %v", err)
+	}
+
+	bad := ts.URL
+	body := strings.NewReader(`{"repo": "https://s.mcquay.me/sm/vain"}`)
+	req, err := http.NewRequest("POST", bad, body)
+	req.Header.Add("Content-Type", "application/json")
+	req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", tok))
+	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		t.Errorf("couldn't POST: %v", err)
 	}
-	if len(ms.p) != 0 {
-		t.Errorf("should have failed to insert; got %d, want %d", len(ms.p), 0)
+	if len(db.Pkgs()) != 0 {
+		t.Errorf("should have failed to insert; got %d, want %d", len(db.Pkgs()), 0)
 	}
-	if want := http.StatusBadRequest; resp.StatusCode != want {
-		t.Errorf("should have failed to post at bad route; got %s, want %s", resp.Status, http.StatusText(want))
+	if got, want := resp.StatusCode, http.StatusBadRequest; got != want {
+		t.Errorf("should have failed to post at bad route; got %s, want %s", http.StatusText(got), http.StatusText(want))
 	}
 }
 
 func TestCannotDuplicateExistingPath(t *testing.T) {
-	ms := NewSimpleStore("")
-	s := &Server{
-		storage: ms,
+	db, done := testDB(t)
+	if db == nil {
+		t.Fatalf("could not create temp db")
 	}
-	ts := httptest.NewServer(s)
+	defer done()
 
-	url := fmt.Sprintf("%s/foo", ts.URL)
-	resp, err := http.Post(url, "application/json", strings.NewReader(`{"repo": "https://s.mcquay.me/sm/vain"}`))
+	sm := http.NewServeMux()
+	NewServer(sm, db)
+	ts := httptest.NewServer(sm)
+
+	tok, err := db.addUser("sm@example.org")
 	if err != nil {
-		t.Errorf("couldn't POST: %v", err)
+		t.Error("failure to add user: %v", err)
 	}
-	if want := http.StatusOK; resp.StatusCode != want {
-		t.Errorf("initial post should have worked; got %s, want %s", resp.Status, http.StatusText(want))
+
+	u := fmt.Sprintf("%s/foo", ts.URL)
+	{
+		body := strings.NewReader(`{"repo": "https://s.mcquay.me/sm/vain"}`)
+		req, err := http.NewRequest("POST", u, body)
+		req.Header.Add("Content-Type", "application/json")
+		req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", tok))
+		resp, err := http.DefaultClient.Do(req)
+		if err != nil {
+			t.Errorf("couldn't POST: %v", err)
+		}
+		if want := http.StatusOK; resp.StatusCode != want {
+			t.Errorf("initial post should have worked; got %s, want %s", resp.Status, http.StatusText(want))
+		}
 	}
-	resp, err = http.Post(url, "application/json", strings.NewReader(`{"repo": "https://s.mcquay.me/sm/vain"}`))
-	if err != nil {
-		t.Errorf("couldn't POST: %v", err)
-	}
-	if want := http.StatusConflict; resp.StatusCode != want {
-		t.Errorf("initial post should have worked; got %s, want %s", resp.Status, http.StatusText(want))
+
+	{
+		body := strings.NewReader(`{"repo": "https://s.mcquay.me/sm/vain"}`)
+		req, err := http.NewRequest("POST", u, body)
+		req.Header.Add("Content-Type", "application/json")
+		req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", tok))
+		resp, err := http.DefaultClient.Do(req)
+		if err != nil {
+			t.Errorf("couldn't POST: %v", err)
+		}
+		if want := http.StatusConflict; resp.StatusCode != want {
+			t.Errorf("initial post should have worked; got %s, want %s", resp.Status, http.StatusText(want))
+		}
 	}
 }
 
 func TestCannotAddExistingSubPath(t *testing.T) {
-	ms := NewSimpleStore("")
-	s := &Server{
-		storage: ms,
+	db, done := testDB(t)
+	if db == nil {
+		t.Fatalf("could not create temp db")
 	}
-	ts := httptest.NewServer(s)
+	defer done()
 
-	url := fmt.Sprintf("%s/foo/bar", ts.URL)
-	resp, err := http.Post(url, "application/json", strings.NewReader(`{"repo": "https://s.mcquay.me/sm/vain"}`))
+	sm := http.NewServeMux()
+	NewServer(sm, db)
+	ts := httptest.NewServer(sm)
+
+	tok, err := db.addUser("sm@example.org")
 	if err != nil {
-		t.Errorf("couldn't POST: %v", err)
-	}
-	if want := http.StatusOK; resp.StatusCode != want {
-		t.Errorf("initial post should have worked; got %s, want %s", resp.Status, http.StatusText(want))
+		t.Error("failure to add user: %v", err)
 	}
 
-	url = fmt.Sprintf("%s/foo", ts.URL)
-	resp, err = http.Post(url, "application/json", strings.NewReader(`{"repo": "https://s.mcquay.me/sm/vain"}`))
-	resp, err = http.Post(url, "application/json", strings.NewReader(`{"repo": "https://s.mcquay.me/sm/vain"}`))
-	if err != nil {
-		t.Errorf("couldn't POST: %v", err)
+	{
+		u := fmt.Sprintf("%s/foo/bar", ts.URL)
+		t.Logf("url: %v", u)
+		body := strings.NewReader(`{"repo": "https://s.mcquay.me/sm/vain"}`)
+		req, err := http.NewRequest("POST", u, body)
+		req.Header.Add("Content-Type", "application/json")
+		req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", tok))
+		resp, err := http.DefaultClient.Do(req)
+		if err != nil {
+			t.Errorf("couldn't POST: %v", err)
+		}
+		if want := http.StatusOK; resp.StatusCode != want {
+			t.Errorf("initial post should have worked; got %s, want %s", resp.Status, http.StatusText(want))
+		}
 	}
-	if want := http.StatusConflict; resp.StatusCode != want {
-		t.Errorf("initial post should have worked; got %s, want %s", resp.Status, http.StatusText(want))
+
+	{
+		u := fmt.Sprintf("%s/foo", ts.URL)
+		body := strings.NewReader(`{"repo": "https://s.mcquay.me/sm/vain"}`)
+		req, err := http.NewRequest("POST", u, body)
+		req.Header.Add("Content-Type", "application/json")
+		req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", tok))
+		resp, err := http.DefaultClient.Do(req)
+		if err != nil {
+			t.Errorf("couldn't POST: %v", err)
+		}
+		if want := http.StatusConflict; resp.StatusCode != want {
+			t.Errorf("initial post should have worked; got %s, want %s", resp.Status, http.StatusText(want))
+		}
 	}
 }
 
 func TestMissingRepo(t *testing.T) {
-	ms := NewSimpleStore("")
-	s := &Server{
-		storage: ms,
+	db, done := testDB(t)
+	if db == nil {
+		t.Fatalf("could not create temp db")
 	}
-	ts := httptest.NewServer(s)
-	url := fmt.Sprintf("%s/foo", ts.URL)
-	resp, err := http.Post(url, "application/json", strings.NewReader(`{}`))
+	defer done()
+
+	sm := http.NewServeMux()
+	NewServer(sm, db)
+	ts := httptest.NewServer(sm)
+
+	tok, err := db.addUser("sm@example.org")
+	if err != nil {
+		t.Error("failure to add user: %v", err)
+	}
+
+	u := fmt.Sprintf("%s/foo", ts.URL)
+	body := strings.NewReader(`{}`)
+	req, err := http.NewRequest("POST", u, body)
+	req.Header.Add("Content-Type", "application/json")
+	req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", tok))
+	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		t.Errorf("couldn't POST: %v", err)
 	}
-	if len(ms.p) != 0 {
-		t.Errorf("should have failed to insert; got %d, want %d", len(ms.p), 0)
+	if len(db.Pkgs()) != 0 {
+		t.Errorf("should have failed to insert; got %d, want %d", len(db.Pkgs()), 0)
 	}
 	if want := http.StatusBadRequest; resp.StatusCode != want {
-		t.Errorf("should have failed to post at bad route; got %s, want %s", resp.Status, http.StatusText(want))
+		t.Errorf("should have failed to post with bad payload; got %s, want %s", resp.Status, http.StatusText(want))
 	}
 }
 
 func TestBadJson(t *testing.T) {
-	ms := NewSimpleStore("")
-	s := &Server{
-		storage: ms,
+	db, done := testDB(t)
+	if db == nil {
+		t.Fatalf("could not create temp db")
 	}
-	ts := httptest.NewServer(s)
-	url := fmt.Sprintf("%s/foo", ts.URL)
-	resp, err := http.Post(url, "application/json", strings.NewReader(`{`))
+	defer done()
+
+	sm := http.NewServeMux()
+	NewServer(sm, db)
+	ts := httptest.NewServer(sm)
+
+	tok, err := db.addUser("sm@example.org")
+	if err != nil {
+		t.Error("failure to add user: %v", err)
+	}
+
+	u := fmt.Sprintf("%s/foo", ts.URL)
+	body := strings.NewReader(`{`)
+	req, err := http.NewRequest("POST", u, body)
+	req.Header.Add("Content-Type", "application/json")
+	req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", tok))
+	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		t.Errorf("couldn't POST: %v", err)
 	}
-	if len(ms.p) != 0 {
-		t.Errorf("should have failed to insert; got %d, want %d", len(ms.p), 0)
+	if len(db.Pkgs()) != 0 {
+		t.Errorf("should have failed to insert; got %d, want %d", len(db.Pkgs()), 0)
 	}
 	if want := http.StatusBadRequest; resp.StatusCode != want {
 		t.Errorf("should have failed to post at bad route; got %s, want %s", resp.Status, http.StatusText(want))
 	}
 }
 
-func TestBadVcs(t *testing.T) {
-	ms := NewSimpleStore("")
-	s := &Server{
-		storage: ms,
+func TestNoAuth(t *testing.T) {
+	db, done := testDB(t)
+	if db == nil {
+		t.Fatalf("could not create temp db")
 	}
-	ts := httptest.NewServer(s)
-	url := fmt.Sprintf("%s/foo", ts.URL)
-	resp, err := http.Post(url, "application/json", strings.NewReader(`{"vcs": "bitbucket", "repo": "https://s.mcquay.me/sm/vain"}`))
+	defer done()
+
+	sm := http.NewServeMux()
+	NewServer(sm, db)
+	ts := httptest.NewServer(sm)
+
+	u := fmt.Sprintf("%s/foo", ts.URL)
+	body := strings.NewReader(`{"repo": "https://s.mcquay.me/sm/vain"}`)
+	req, err := http.NewRequest("POST", u, body)
+	req.Header.Add("Content-Type", "application/json")
+
+	// here we don't set the Authorization header
+	// req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", tok))
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Errorf("couldn't POST: %v", err)
+	}
+	resp.Body.Close()
+	if got, want := resp.StatusCode, http.StatusUnauthorized; got != want {
+		t.Errorf("posted with missing auth; got %v, want %v", http.StatusText(got), http.StatusText(want))
+	}
+}
+
+func TestBadVcs(t *testing.T) {
+	db, done := testDB(t)
+	if db == nil {
+		t.Fatalf("could not create temp db")
+	}
+	defer done()
+
+	sm := http.NewServeMux()
+	NewServer(sm, db)
+	ts := httptest.NewServer(sm)
+
+	tok, err := db.addUser("sm@example.org")
+	if err != nil {
+		t.Error("failure to add user: %v", err)
+	}
+
+	u := fmt.Sprintf("%s/foo", ts.URL)
+	body := strings.NewReader(`{"vcs": "bitbucket", "repo": "https://s.mcquay.me/sm/vain"}`)
+	req, err := http.NewRequest("POST", u, body)
+	req.Header.Add("Content-Type", "application/json")
+	req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", tok))
+	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		t.Errorf("couldn't POST: %v", err)
 	}
@@ -242,40 +411,31 @@ func TestBadVcs(t *testing.T) {
 }
 
 func TestUnsupportedMethod(t *testing.T) {
-	ms := NewSimpleStore("")
-	s := &Server{
-		storage: ms,
+	db, done := testDB(t)
+	if db == nil {
+		t.Fatalf("could not create temp db")
 	}
-	ts := httptest.NewServer(s)
-	url := fmt.Sprintf("%s/foo", ts.URL)
-	client := &http.Client{}
-	req, err := http.NewRequest("PUT", url, nil)
-	resp, err := client.Do(req)
-	if err != nil {
-		t.Errorf("couldn't POST: %v", err)
-	}
-	if len(ms.p) != 0 {
-		t.Errorf("should have failed to insert; got %d, want %d", len(ms.p), 0)
-	}
-	if want := http.StatusMethodNotAllowed; resp.StatusCode != want {
-		t.Errorf("should have failed to post at bad route; got %s, want %s", resp.Status, http.StatusText(want))
-	}
-}
+	defer done()
 
-func TestNewServer(t *testing.T) {
-	ms := NewSimpleStore("")
 	sm := http.NewServeMux()
-	s := NewServer(sm, ms)
-	ts := httptest.NewServer(s)
+	NewServer(sm, db)
+	ts := httptest.NewServer(sm)
+
+	tok, err := db.addUser("sm@example.org")
+	if err != nil {
+		t.Error("failure to add user: %v", err)
+	}
+
 	url := fmt.Sprintf("%s/foo", ts.URL)
 	client := &http.Client{}
 	req, err := http.NewRequest("PUT", url, nil)
+	req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", tok))
 	resp, err := client.Do(req)
 	if err != nil {
 		t.Errorf("couldn't POST: %v", err)
 	}
-	if len(ms.p) != 0 {
-		t.Errorf("should have failed to insert; got %d, want %d", len(ms.p), 0)
+	if len(db.Pkgs()) != 0 {
+		t.Errorf("should have failed to insert; got %d, want %d", len(db.Pkgs()), 0)
 	}
 	if want := http.StatusMethodNotAllowed; resp.StatusCode != want {
 		t.Errorf("should have failed to post at bad route; got %s, want %s", resp.Status, http.StatusText(want))
@@ -283,27 +443,37 @@ func TestNewServer(t *testing.T) {
 }
 
 func TestDelete(t *testing.T) {
-	ms := NewSimpleStore("")
-	sm := http.NewServeMux()
-	_ = NewServer(sm, ms)
-	ts := httptest.NewServer(sm)
-	resp, err := http.Get(ts.URL)
-	if err != nil {
-		t.Errorf("couldn't GET: %v", err)
+	db, done := testDB(t)
+	if db == nil {
+		t.Fatalf("could not create temp db")
 	}
-	resp.Body.Close()
-	if len(ms.p) != 0 {
-		t.Errorf("started with something in it; got %d, want %d", len(ms.p), 0)
+	defer done()
+
+	sm := http.NewServeMux()
+	NewServer(sm, db)
+	ts := httptest.NewServer(sm)
+
+	tok, err := db.addUser("sm@example.org")
+	if err != nil {
+		t.Error("failure to add user: %v", err)
+	}
+	t.Logf("%v", tok)
+	if len(db.Pkgs()) != 0 {
+		t.Errorf("started with something in it; got %d, want %d", len(db.Pkgs()), 0)
 	}
 
 	u := fmt.Sprintf("%s/foo", ts.URL)
-	resp, err = http.Post(u, "application/json", strings.NewReader(`{"repo": "https://s.mcquay.me/sm/vain"}`))
+	body := strings.NewReader(`{"repo": "https://s.mcquay.me/sm/vain"}`)
+	req, err := http.NewRequest("POST", u, body)
+	req.Header.Add("Content-Type", "application/json")
+	req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", tok))
+	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		t.Errorf("couldn't POST: %v", err)
 	}
 
-	if got, want := len(ms.p), 1; got != want {
-		t.Errorf("storage should have something in it; got %d, want %d", got, want)
+	if got, want := len(db.Pkgs()), 1; got != want {
+		t.Errorf("pkgs should have something in it; got %d, want %d", got, want)
 	}
 
 	{
@@ -311,6 +481,7 @@ func TestDelete(t *testing.T) {
 		u := fmt.Sprintf("%s/bar", ts.URL)
 		client := &http.Client{}
 		req, err := http.NewRequest("DELETE", u, nil)
+		req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", tok))
 		resp, err = client.Do(req)
 		if err != nil {
 			t.Errorf("couldn't POST: %v", err)
@@ -319,14 +490,18 @@ func TestDelete(t *testing.T) {
 			t.Errorf("should have not been able to delete unknown package; got %v, want %v", http.StatusText(got), http.StatusText(want))
 		}
 	}
-	client := &http.Client{}
-	req, err := http.NewRequest("DELETE", u, nil)
-	resp, err = client.Do(req)
-	if err != nil {
-		t.Errorf("couldn't POST: %v", err)
-	}
 
-	if got, want := len(ms.p), 0; got != want {
-		t.Errorf("storage should be empty; got %d, want %d", got, want)
+	{
+		client := &http.Client{}
+		req, err := http.NewRequest("DELETE", u, nil)
+		req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", tok))
+		resp, err = client.Do(req)
+		if err != nil {
+			t.Errorf("couldn't POST: %v", err)
+		}
+
+		if got, want := len(db.Pkgs()), 0; got != want {
+			t.Errorf("pkgs should be empty; got %d, want %d", got, want)
+		}
 	}
 }

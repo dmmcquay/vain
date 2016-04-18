@@ -55,6 +55,9 @@ const usage = "vaind [init] <dbname>"
 
 type config struct {
 	Port int
+
+	Cert string
+	Key  string
 }
 
 func main() {
@@ -114,8 +117,17 @@ func main() {
 	sm := http.NewServeMux()
 	vain.NewServer(sm, db)
 	addr := fmt.Sprintf(":%d", c.Port)
-	if err := http.ListenAndServe(addr, sm); err != nil {
-		log.Printf("problem with http server: %v", err)
-		os.Exit(1)
+
+	if c.Cert == "" || c.Key == "" {
+		log.Printf("INSECURE MODE")
+		if err := http.ListenAndServe(addr, sm); err != nil {
+			log.Printf("problem with http server: %v", err)
+			os.Exit(1)
+		}
+	} else {
+		if err := http.ListenAndServeTLS(addr, c.Cert, c.Key, sm); err != nil {
+			log.Printf("problem with http server: %v", err)
+			os.Exit(1)
+		}
 	}
 }

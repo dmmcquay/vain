@@ -130,7 +130,11 @@ func (s *Server) register(w http.ResponseWriter, req *http.Request) {
 		http.Error(w, err.Message, err.Code)
 		return
 	}
-	log.Printf("http://%s/api/v0/confirm/%+v", req.Host, tok)
+	proto := "https"
+	if req.TLS == nil {
+		proto = "http"
+	}
+	log.Printf("%s://%s/api/v0/confirm/%+v", proto, req.Host, tok)
 	fmt.Fprintf(w, "please check your email\n")
 }
 

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"net/mail"
 	"strings"
 
 	verrors "mcquay.me/vain/errors"
@@ -125,7 +126,14 @@ func (s *Server) register(w http.ResponseWriter, req *http.Request) {
 		http.Error(w, "must provide one email parameter", http.StatusBadRequest)
 		return
 	}
-	tok, err := s.db.Register(email[0])
+
+	addr := email[0]
+	if _, err := mail.ParseAddress(addr); err != nil {
+		http.Error(w, fmt.Sprintf("invalid email detected: %v", err), http.StatusBadRequest)
+		return
+	}
+
+	tok, err := s.db.Register(addr)
 	if err := verrors.ToHTTP(err); err != nil {
 		http.Error(w, err.Message, err.Code)
 		return
@@ -160,7 +168,14 @@ func (s *Server) forgot(w http.ResponseWriter, req *http.Request) {
 		http.Error(w, "must provide one email parameter", http.StatusBadRequest)
 		return
 	}
-	tok, err := s.db.forgot(email[0])
+
+	addr := email[0]
+	if _, err := mail.ParseAddress(addr); err != nil {
+		http.Error(w, fmt.Sprintf("invalid email detected: %v", err), http.StatusBadRequest)
+		return
+	}
+
+	tok, err := s.db.forgot(addr)
 	if err := verrors.ToHTTP(err); err != nil {
 		http.Error(w, err.Message, err.Code)
 		return

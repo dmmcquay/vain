@@ -20,7 +20,7 @@ func TestAdd(t *testing.T) {
 	defer done()
 
 	sm := http.NewServeMux()
-	NewServer(sm, db)
+	NewServer(sm, db, "")
 	ts := httptest.NewServer(sm)
 	tok, err := db.addUser("sm@example.org")
 	if err != nil {
@@ -29,12 +29,12 @@ func TestAdd(t *testing.T) {
 
 	resp, err := http.Get(ts.URL)
 	if err != nil {
-		t.Errorf("couldn't GET: %v", err)
+		t.Fatalf("couldn't GET: %v", err)
 	}
 	resp.Body.Close()
 
 	if got, want := len(db.Pkgs()), 0; got != want {
-		t.Errorf("started with something in it; got %d, want %d", got, want)
+		t.Fatalf("started with something in it; got %d, want %d", got, want)
 	}
 
 	{
@@ -45,18 +45,18 @@ func TestAdd(t *testing.T) {
 		req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", tok))
 		resp, err := http.DefaultClient.Do(req)
 		if err != nil {
-			t.Errorf("couldn't POST: %v", err)
+			t.Fatalf("couldn't POST: %v", err)
 		}
 		if got, want := resp.StatusCode, http.StatusBadRequest; got != want {
 			buf := &bytes.Buffer{}
 			io.Copy(buf, resp.Body)
-			t.Errorf("bad request got incorrect status: got %d, want %d", got, want)
-			t.Log("%s", buf)
+			t.Logf("%s", buf.Bytes())
+			t.Fatalf("bad request got incorrect status: got %d, want %d", got, want)
 		}
 		resp.Body.Close()
 
 		if got, want := len(db.Pkgs()), 0; got != want {
-			t.Errorf("started with something in it; got %d, want %d", got, want)
+			t.Fatalf("started with something in it; got %d, want %d", got, want)
 		}
 	}
 
@@ -70,10 +70,10 @@ func TestAdd(t *testing.T) {
 		io.Copy(buf, resp.Body)
 		pkgs := []Package{}
 		if err := json.NewDecoder(buf).Decode(&pkgs); err != nil {
-			t.Errorf("problem parsing json: %v, \n%q", err, buf)
+			t.Fatalf("problem parsing json: %v, \n%q", err, buf)
 		}
 		if got, want := len(pkgs), 0; got != want {
-			t.Errorf("should have empty pkg list; got %d, want %d", got, want)
+			t.Fatalf("should have empty pkg list; got %d, want %d", got, want)
 		}
 	}
 
@@ -86,7 +86,7 @@ func TestAdd(t *testing.T) {
 		req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", tok))
 		resp, err := http.DefaultClient.Do(req)
 		if err != nil {
-			t.Errorf("problem performing request: %v", err)
+			t.Fatalf("problem performing request: %v", err)
 		}
 		buf := &bytes.Buffer{}
 		io.Copy(buf, resp.Body)
@@ -94,7 +94,7 @@ func TestAdd(t *testing.T) {
 		resp.Body.Close()
 
 		if got, want := len(db.Pkgs()), 1; got != want {
-			t.Errorf("pkgs should have something in it; got %d, want %d", got, want)
+			t.Fatalf("pkgs should have something in it; got %d, want %d", got, want)
 		}
 		t.Logf("packages: %v", db.Pkgs())
 
@@ -114,30 +114,30 @@ func TestAdd(t *testing.T) {
 			t.Fatalf("problem getting package: %v", err)
 		}
 		if got, want := p.Path, good; got != want {
-			t.Errorf("package name did not go through as expected; got %q, want %q", got, want)
+			t.Fatalf("package name did not go through as expected; got %q, want %q", got, want)
 		}
 		if got, want := p.Repo, "https://s.mcquay.me/sm/vain"; got != want {
-			t.Errorf("repo did not go through as expected; got %q, want %q", got, want)
+			t.Fatalf("repo did not go through as expected; got %q, want %q", got, want)
 		}
 		if got, want := p.Vcs, "git"; got != want {
-			t.Errorf("Vcs did not go through as expected; got %q, want %q", got, want)
+			t.Fatalf("Vcs did not go through as expected; got %q, want %q", got, want)
 		}
 	}
 
-	resp, err = http.Get(ts.URL)
+	resp, err = http.Get(ts.URL + "?go-get=1")
 	if err != nil {
-		t.Errorf("couldn't GET: %v", err)
+		t.Fatalf("couldn't GET: %v", err)
 	}
 	defer resp.Body.Close()
 	if want := http.StatusOK; resp.StatusCode != want {
-		t.Errorf("Should have succeeded to fetch /; got %s, want %s", resp.Status, http.StatusText(want))
+		t.Fatalf("Should have succeeded to fetch /; got %s, want %s", resp.Status, http.StatusText(want))
 	}
 	buf := &bytes.Buffer{}
 	if _, err := io.Copy(buf, resp.Body); err != nil {
-		t.Errorf("couldn't read content from server: %v", err)
+		t.Fatalf("couldn't read content from server: %v", err)
 	}
 	if got, want := strings.Count(buf.String(), "<meta"), 1; got != want {
-		t.Errorf("did not find all the tags I need; got %d, want %d", got, want)
+		t.Fatalf("did not find all the tags I need; got %d, want %d", got, want)
 	}
 
 	{
@@ -150,10 +150,10 @@ func TestAdd(t *testing.T) {
 		io.Copy(buf, resp.Body)
 		pkgs := []Package{}
 		if err := json.NewDecoder(buf).Decode(&pkgs); err != nil {
-			t.Errorf("problem parsing json: %v, \n%q", err, buf)
+			t.Fatalf("problem parsing json: %v, \n%q", err, buf)
 		}
 		if got, want := len(pkgs), 1; got != want {
-			t.Errorf("should (mildly) populated pkg list; got %d, want %d", got, want)
+			t.Fatalf("should (mildly) populated pkg list; got %d, want %d", got, want)
 		}
 	}
 }
@@ -166,7 +166,7 @@ func TestInvalidPath(t *testing.T) {
 	defer done()
 
 	sm := http.NewServeMux()
-	NewServer(sm, db)
+	NewServer(sm, db, "")
 	ts := httptest.NewServer(sm)
 	tok, err := db.addUser("sm@example.org")
 	if err != nil {
@@ -180,13 +180,13 @@ func TestInvalidPath(t *testing.T) {
 	req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", tok))
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
-		t.Errorf("couldn't POST: %v", err)
+		t.Fatalf("couldn't POST: %v", err)
 	}
 	if len(db.Pkgs()) != 0 {
-		t.Errorf("should have failed to insert; got %d, want %d", len(db.Pkgs()), 0)
+		t.Fatalf("should have failed to insert; got %d, want %d", len(db.Pkgs()), 0)
 	}
 	if got, want := resp.StatusCode, http.StatusBadRequest; got != want {
-		t.Errorf("should have failed to post at bad route; got %s, want %s", http.StatusText(got), http.StatusText(want))
+		t.Fatalf("should have failed to post at bad route; got %s, want %s", http.StatusText(got), http.StatusText(want))
 	}
 }
 
@@ -198,7 +198,7 @@ func TestCannotDuplicateExistingPath(t *testing.T) {
 	defer done()
 
 	sm := http.NewServeMux()
-	NewServer(sm, db)
+	NewServer(sm, db, "")
 	ts := httptest.NewServer(sm)
 
 	tok, err := db.addUser("sm@example.org")
@@ -214,10 +214,10 @@ func TestCannotDuplicateExistingPath(t *testing.T) {
 		req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", tok))
 		resp, err := http.DefaultClient.Do(req)
 		if err != nil {
-			t.Errorf("couldn't POST: %v", err)
+			t.Fatalf("couldn't POST: %v", err)
 		}
 		if want := http.StatusOK; resp.StatusCode != want {
-			t.Errorf("initial post should have worked; got %s, want %s", resp.Status, http.StatusText(want))
+			t.Fatalf("initial post should have worked; got %s, want %s", resp.Status, http.StatusText(want))
 		}
 	}
 
@@ -228,10 +228,10 @@ func TestCannotDuplicateExistingPath(t *testing.T) {
 		req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", tok))
 		resp, err := http.DefaultClient.Do(req)
 		if err != nil {
-			t.Errorf("couldn't POST: %v", err)
+			t.Fatalf("couldn't POST: %v", err)
 		}
 		if want := http.StatusConflict; resp.StatusCode != want {
-			t.Errorf("initial post should have worked; got %s, want %s", resp.Status, http.StatusText(want))
+			t.Fatalf("initial post should have worked; got %s, want %s", resp.Status, http.StatusText(want))
 		}
 	}
 }
@@ -244,7 +244,7 @@ func TestCannotAddExistingSubPath(t *testing.T) {
 	defer done()
 
 	sm := http.NewServeMux()
-	NewServer(sm, db)
+	NewServer(sm, db, "")
 	ts := httptest.NewServer(sm)
 
 	tok, err := db.addUser("sm@example.org")
@@ -261,10 +261,10 @@ func TestCannotAddExistingSubPath(t *testing.T) {
 		req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", tok))
 		resp, err := http.DefaultClient.Do(req)
 		if err != nil {
-			t.Errorf("couldn't POST: %v", err)
+			t.Fatalf("couldn't POST: %v", err)
 		}
 		if want := http.StatusOK; resp.StatusCode != want {
-			t.Errorf("initial post should have worked; got %s, want %s", resp.Status, http.StatusText(want))
+			t.Fatalf("initial post should have worked; got %s, want %s", resp.Status, http.StatusText(want))
 		}
 	}
 
@@ -276,10 +276,10 @@ func TestCannotAddExistingSubPath(t *testing.T) {
 		req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", tok))
 		resp, err := http.DefaultClient.Do(req)
 		if err != nil {
-			t.Errorf("couldn't POST: %v", err)
+			t.Fatalf("couldn't POST: %v", err)
 		}
 		if want := http.StatusConflict; resp.StatusCode != want {
-			t.Errorf("initial post should have worked; got %s, want %s", resp.Status, http.StatusText(want))
+			t.Fatalf("initial post should have worked; got %s, want %s", resp.Status, http.StatusText(want))
 		}
 	}
 }
@@ -292,7 +292,7 @@ func TestMissingRepo(t *testing.T) {
 	defer done()
 
 	sm := http.NewServeMux()
-	NewServer(sm, db)
+	NewServer(sm, db, "")
 	ts := httptest.NewServer(sm)
 
 	tok, err := db.addUser("sm@example.org")
@@ -307,13 +307,13 @@ func TestMissingRepo(t *testing.T) {
 	req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", tok))
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
-		t.Errorf("couldn't POST: %v", err)
+		t.Fatalf("couldn't POST: %v", err)
 	}
 	if len(db.Pkgs()) != 0 {
-		t.Errorf("should have failed to insert; got %d, want %d", len(db.Pkgs()), 0)
+		t.Fatalf("should have failed to insert; got %d, want %d", len(db.Pkgs()), 0)
 	}
 	if want := http.StatusBadRequest; resp.StatusCode != want {
-		t.Errorf("should have failed to post with bad payload; got %s, want %s", resp.Status, http.StatusText(want))
+		t.Fatalf("should have failed to post with bad payload; got %s, want %s", resp.Status, http.StatusText(want))
 	}
 }
 
@@ -325,7 +325,7 @@ func TestBadJson(t *testing.T) {
 	defer done()
 
 	sm := http.NewServeMux()
-	NewServer(sm, db)
+	NewServer(sm, db, "")
 	ts := httptest.NewServer(sm)
 
 	tok, err := db.addUser("sm@example.org")
@@ -340,13 +340,13 @@ func TestBadJson(t *testing.T) {
 	req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", tok))
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
-		t.Errorf("couldn't POST: %v", err)
+		t.Fatalf("couldn't POST: %v", err)
 	}
 	if len(db.Pkgs()) != 0 {
-		t.Errorf("should have failed to insert; got %d, want %d", len(db.Pkgs()), 0)
+		t.Fatalf("should have failed to insert; got %d, want %d", len(db.Pkgs()), 0)
 	}
 	if want := http.StatusBadRequest; resp.StatusCode != want {
-		t.Errorf("should have failed to post at bad route; got %s, want %s", resp.Status, http.StatusText(want))
+		t.Fatalf("should have failed to post at bad route; got %s, want %s", resp.Status, http.StatusText(want))
 	}
 }
 
@@ -358,7 +358,7 @@ func TestNoAuth(t *testing.T) {
 	defer done()
 
 	sm := http.NewServeMux()
-	NewServer(sm, db)
+	NewServer(sm, db, "")
 	ts := httptest.NewServer(sm)
 
 	u := fmt.Sprintf("%s/foo", ts.URL)
@@ -371,11 +371,11 @@ func TestNoAuth(t *testing.T) {
 
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
-		t.Errorf("couldn't POST: %v", err)
+		t.Fatalf("couldn't POST: %v", err)
 	}
 	resp.Body.Close()
 	if got, want := resp.StatusCode, http.StatusUnauthorized; got != want {
-		t.Errorf("posted with missing auth; got %v, want %v", http.StatusText(got), http.StatusText(want))
+		t.Fatalf("posted with missing auth; got %v, want %v", http.StatusText(got), http.StatusText(want))
 	}
 }
 
@@ -387,7 +387,7 @@ func TestBadVcs(t *testing.T) {
 	defer done()
 
 	sm := http.NewServeMux()
-	NewServer(sm, db)
+	NewServer(sm, db, "")
 	ts := httptest.NewServer(sm)
 
 	tok, err := db.addUser("sm@example.org")
@@ -402,11 +402,11 @@ func TestBadVcs(t *testing.T) {
 	req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", tok))
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
-		t.Errorf("couldn't POST: %v", err)
+		t.Fatalf("couldn't POST: %v", err)
 	}
 	resp.Body.Close()
 	if got, want := resp.StatusCode, http.StatusBadRequest; got != want {
-		t.Errorf("should have reported bad vcs specified; got %v, want %v", http.StatusText(got), http.StatusText(want))
+		t.Fatalf("should have reported bad vcs specified; got %v, want %v", http.StatusText(got), http.StatusText(want))
 	}
 }
 
@@ -418,7 +418,7 @@ func TestUnsupportedMethod(t *testing.T) {
 	defer done()
 
 	sm := http.NewServeMux()
-	NewServer(sm, db)
+	NewServer(sm, db, "")
 	ts := httptest.NewServer(sm)
 
 	tok, err := db.addUser("sm@example.org")
@@ -432,13 +432,13 @@ func TestUnsupportedMethod(t *testing.T) {
 	req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", tok))
 	resp, err := client.Do(req)
 	if err != nil {
-		t.Errorf("couldn't POST: %v", err)
+		t.Fatalf("couldn't POST: %v", err)
 	}
 	if len(db.Pkgs()) != 0 {
-		t.Errorf("should have failed to insert; got %d, want %d", len(db.Pkgs()), 0)
+		t.Fatalf("should have failed to insert; got %d, want %d", len(db.Pkgs()), 0)
 	}
 	if want := http.StatusMethodNotAllowed; resp.StatusCode != want {
-		t.Errorf("should have failed to post at bad route; got %s, want %s", resp.Status, http.StatusText(want))
+		t.Fatalf("should have failed to post at bad route; got %s, want %s", resp.Status, http.StatusText(want))
 	}
 }
 
@@ -450,7 +450,7 @@ func TestDelete(t *testing.T) {
 	defer done()
 
 	sm := http.NewServeMux()
-	NewServer(sm, db)
+	NewServer(sm, db, "")
 	ts := httptest.NewServer(sm)
 
 	tok, err := db.addUser("sm@example.org")
@@ -459,7 +459,7 @@ func TestDelete(t *testing.T) {
 	}
 	t.Logf("%v", tok)
 	if len(db.Pkgs()) != 0 {
-		t.Errorf("started with something in it; got %d, want %d", len(db.Pkgs()), 0)
+		t.Fatalf("started with something in it; got %d, want %d", len(db.Pkgs()), 0)
 	}
 
 	u := fmt.Sprintf("%s/foo", ts.URL)
@@ -469,11 +469,11 @@ func TestDelete(t *testing.T) {
 	req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", tok))
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
-		t.Errorf("couldn't POST: %v", err)
+		t.Fatalf("couldn't POST: %v", err)
 	}
 
 	if got, want := len(db.Pkgs()), 1; got != want {
-		t.Errorf("pkgs should have something in it; got %d, want %d", got, want)
+		t.Fatalf("pkgs should have something in it; got %d, want %d", got, want)
 	}
 
 	{
@@ -484,10 +484,10 @@ func TestDelete(t *testing.T) {
 		req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", tok))
 		resp, err = client.Do(req)
 		if err != nil {
-			t.Errorf("couldn't POST: %v", err)
+			t.Fatalf("couldn't POST: %v", err)
 		}
 		if got, want := resp.StatusCode, http.StatusNotFound; got != want {
-			t.Errorf("should have not been able to delete unknown package; got %v, want %v", http.StatusText(got), http.StatusText(want))
+			t.Fatalf("should have not been able to delete unknown package; got %v, want %v", http.StatusText(got), http.StatusText(want))
 		}
 	}
 
@@ -497,11 +497,11 @@ func TestDelete(t *testing.T) {
 		req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", tok))
 		resp, err = client.Do(req)
 		if err != nil {
-			t.Errorf("couldn't POST: %v", err)
+			t.Fatalf("couldn't POST: %v", err)
 		}
 
 		if got, want := len(db.Pkgs()), 0; got != want {
-			t.Errorf("pkgs should be empty; got %d, want %d", got, want)
+			t.Fatalf("pkgs should be empty; got %d, want %d", got, want)
 		}
 	}
 }

@@ -8,6 +8,8 @@ import (
 	"net/mail"
 	"strings"
 
+	"github.com/elazarl/go-bindata-assetfs"
+
 	verrors "mcquay.me/vain/errors"
 )
 
@@ -21,13 +23,15 @@ func init() {
 		"register": apiPrefix + "register/",
 		"confirm":  apiPrefix + "confirm/",
 		"forgot":   apiPrefix + "forgot/",
+		"static":   "/_static/",
 	}
 }
 
 // NewServer populates a server, adds the routes, and returns it for use.
-func NewServer(sm *http.ServeMux, store *DB) *Server {
+func NewServer(sm *http.ServeMux, store *DB, static string) *Server {
 	s := &Server{
-		db: store,
+		db:     store,
+		static: static,
 	}
 	addRoutes(sm, s)
 	return s
@@ -35,13 +39,17 @@ func NewServer(sm *http.ServeMux, store *DB) *Server {
 
 // Server serves up the http.
 type Server struct {
-	db *DB
+	db     *DB
+	static string
 }
 
 func (s *Server) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	if req.Method == "GET" {
-		// TODO: perhaps have a nicely formatted page with info as root if
-		// go-get=1 not in request?
+		req.ParseForm()
+		if _, ok := req.Form["go-get"]; !ok {
+			http.Redirect(w, req, prefix["static"], http.StatusTemporaryRedirect)
+			return
+		}
 		fmt.Fprintf(w, "<!DOCTYPE html>\n<html><head>\n")
 		for _, p := range s.db.Pkgs() {
 			fmt.Fprintf(w, "%s\n", p)
@@ -190,6 +198,27 @@ func (s *Server) pkgs(w http.ResponseWriter, req *http.Request) {
 
 func addRoutes(sm *http.ServeMux, s *Server) {
 	sm.Handle("/", s)
+
+	if s.static == "" {
+		sm.Handle(
+			prefix["static"],
+			http.FileServer(
+				&assetfs.AssetFS{
+					Asset:     Asset,
+					AssetDir:  AssetDir,
+					AssetInfo: AssetInfo,
+				},
+			),
+		)
+	} else {
+		sm.Handle(
+			prefix["static"],
+			http.StripPrefix(
+				prefix["static"],
+				http.FileServer(http.Dir(s.static)),
+			),
+		)
+	}
 
 	sm.HandleFunc(prefix["pkgs"], s.pkgs)
 	sm.HandleFunc(prefix["register"], s.register)

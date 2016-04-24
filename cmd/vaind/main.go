@@ -58,6 +58,8 @@ type config struct {
 
 	Cert string
 	Key  string
+
+	Static string
 }
 
 func main() {
@@ -115,7 +117,7 @@ func main() {
 	}
 	log.Printf("serving at: http://%s:%d/", hostname, c.Port)
 	sm := http.NewServeMux()
-	vain.NewServer(sm, db)
+	vain.NewServer(sm, db, c.Static)
 	addr := fmt.Sprintf(":%d", c.Port)
 
 	if c.Cert == "" || c.Key == "" {

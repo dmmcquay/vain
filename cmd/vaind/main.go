@@ -45,6 +45,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"time"
 
 	"mcquay.me/vain"
 
@@ -60,6 +61,8 @@ type config struct {
 	Key  string
 
 	Static string
+
+	EmailTimeout time.Duration `envconfig:"email_timeout"`
 }
 
 func main() {
@@ -96,12 +99,14 @@ func main() {
 	}
 
 	c := &config{
-		Port: 4040,
+		Port:         4040,
+		EmailTimeout: 5 * time.Minute,
 	}
 	if err := envconfig.Process("vain", c); err != nil {
 		fmt.Fprintf(os.Stderr, "problem processing environment: %v", err)
 		os.Exit(1)
 	}
+	log.Printf("%+v", c)
 	if len(os.Args) > 1 {
 		switch os.Args[1] {
 		case "env", "e", "help", "h":
@@ -117,7 +122,7 @@ func main() {
 	}
 	log.Printf("serving at: http://%s:%d/", hostname, c.Port)
 	sm := http.NewServeMux()
-	vain.NewServer(sm, db, c.Static)
+	vain.NewServer(sm, db, c.Static, c.EmailTimeout)
 	addr := fmt.Sprintf(":%d", c.Port)
 
 	if c.Cert == "" || c.Key == "" {

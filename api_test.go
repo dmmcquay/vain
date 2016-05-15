@@ -10,7 +10,10 @@ import (
 	"net/url"
 	"strings"
 	"testing"
+	"time"
 )
+
+const window = 5 * time.Minute
 
 func TestAdd(t *testing.T) {
 	db, done := testDB(t)
@@ -20,7 +23,7 @@ func TestAdd(t *testing.T) {
 	defer done()
 
 	sm := http.NewServeMux()
-	NewServer(sm, db, "")
+	NewServer(sm, db, "", window)
 	ts := httptest.NewServer(sm)
 	tok, err := db.addUser("sm@example.org")
 	if err != nil {
@@ -166,7 +169,7 @@ func TestInvalidPath(t *testing.T) {
 	defer done()
 
 	sm := http.NewServeMux()
-	NewServer(sm, db, "")
+	NewServer(sm, db, "", window)
 	ts := httptest.NewServer(sm)
 	tok, err := db.addUser("sm@example.org")
 	if err != nil {
@@ -198,7 +201,7 @@ func TestCannotDuplicateExistingPath(t *testing.T) {
 	defer done()
 
 	sm := http.NewServeMux()
-	NewServer(sm, db, "")
+	NewServer(sm, db, "", window)
 	ts := httptest.NewServer(sm)
 
 	tok, err := db.addUser("sm@example.org")
@@ -244,7 +247,7 @@ func TestCannotAddExistingSubPath(t *testing.T) {
 	defer done()
 
 	sm := http.NewServeMux()
-	NewServer(sm, db, "")
+	NewServer(sm, db, "", window)
 	ts := httptest.NewServer(sm)
 
 	tok, err := db.addUser("sm@example.org")
@@ -292,7 +295,7 @@ func TestMissingRepo(t *testing.T) {
 	defer done()
 
 	sm := http.NewServeMux()
-	NewServer(sm, db, "")
+	NewServer(sm, db, "", window)
 	ts := httptest.NewServer(sm)
 
 	tok, err := db.addUser("sm@example.org")
@@ -325,7 +328,7 @@ func TestBadJson(t *testing.T) {
 	defer done()
 
 	sm := http.NewServeMux()
-	NewServer(sm, db, "")
+	NewServer(sm, db, "", window)
 	ts := httptest.NewServer(sm)
 
 	tok, err := db.addUser("sm@example.org")
@@ -358,7 +361,7 @@ func TestNoAuth(t *testing.T) {
 	defer done()
 
 	sm := http.NewServeMux()
-	NewServer(sm, db, "")
+	NewServer(sm, db, "", window)
 	ts := httptest.NewServer(sm)
 
 	u := fmt.Sprintf("%s/foo", ts.URL)
@@ -387,7 +390,7 @@ func TestBadVcs(t *testing.T) {
 	defer done()
 
 	sm := http.NewServeMux()
-	NewServer(sm, db, "")
+	NewServer(sm, db, "", window)
 	ts := httptest.NewServer(sm)
 
 	tok, err := db.addUser("sm@example.org")
@@ -418,7 +421,7 @@ func TestUnsupportedMethod(t *testing.T) {
 	defer done()
 
 	sm := http.NewServeMux()
-	NewServer(sm, db, "")
+	NewServer(sm, db, "", window)
 	ts := httptest.NewServer(sm)
 
 	tok, err := db.addUser("sm@example.org")
@@ -450,7 +453,7 @@ func TestDelete(t *testing.T) {
 	defer done()
 
 	sm := http.NewServeMux()
-	NewServer(sm, db, "")
+	NewServer(sm, db, "", window)
 	ts := httptest.NewServer(sm)
 
 	tok, err := db.addUser("sm@example.org")

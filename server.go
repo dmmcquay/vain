@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/mail"
 	"strings"
+	"time"
 
 	"github.com/elazarl/go-bindata-assetfs"
 
@@ -28,10 +29,11 @@ func init() {
 }
 
 // NewServer populates a server, adds the routes, and returns it for use.
-func NewServer(sm *http.ServeMux, store *DB, static string) *Server {
+func NewServer(sm *http.ServeMux, store *DB, static string, emailTimeout time.Duration) *Server {
 	s := &Server{
-		db:     store,
-		static: static,
+		db:           store,
+		static:       static,
+		emailTimeout: emailTimeout,
 	}
 	addRoutes(sm, s)
 	return s
@@ -39,8 +41,9 @@ func NewServer(sm *http.ServeMux, store *DB, static string) *Server {
 
 // Server serves up the http.
 type Server struct {
-	db     *DB
-	static string
+	db           *DB
+	static       string
+	emailTimeout time.Duration
 }
 
 func (s *Server) ServeHTTP(w http.ResponseWriter, req *http.Request) {
@@ -183,7 +186,7 @@ func (s *Server) forgot(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	tok, err := s.db.forgot(addr)
+	tok, err := s.db.forgot(addr, s.emailTimeout)
 	if err := verrors.ToHTTP(err); err != nil {
 		http.Error(w, err.Message, err.Code)
 		return

@@ -245,15 +245,47 @@ func (db *DB) Confirm(token string) (string, error) {
 	return newToken, nil
 }
 
-func (db *DB) forgot(email string) (string, error) {
-	var token string
-	if err := db.conn.Get(&token, "SELECT token FROM users WHERE email = ?", email); err != nil {
+func (db *DB) forgot(email string, window time.Duration) (string, error) {
+	txn, err := db.conn.Beginx()
+	if err != nil {
 		return "", verrors.HTTP{
-			Message: fmt.Sprintf("could not search for email %q in db: %v", email, err),
+			Message: fmt.Sprintf("problem creating transaction: %v", err),
 			Code:    http.StatusInternalServerError,
 		}
 	}
-	return token, nil
+	defer func() {
+		if err != nil {
+			txn.Rollback()
+		} else {
+			txn.Commit()
+		}
+	}()
+
+	out := struct {
+		Token     string
+		Requested time.Time
+	}{}
+	if err = txn.Get(&out, "SELECT token, requested FROM users WHERE email = ?", email); err != nil {
+		return "", verrors.HTTP{
+			Message: fmt.Sprintf("could not find email %q in db", email),
+			Code:    http.StatusNotFound,
+		}
+	}
+
+	if out.Requested.After(time.Now()) {
+		return "", verrors.HTTP{
+			Message: fmt.Sprintf("rate limit hit for %q; try again in %0.2f mins", email, out.Requested.Sub(time.Now()).Minutes()),
+			Code:    http.StatusTooManyRequests,
+		}
+	}
+	_, err = txn.Exec("UPDATE users SET requested = ? WHERE email = ?", time.Now().Add(window), email)
+	if err != nil {
+		return "", verrors.HTTP{
+			Message: fmt.Sprintf("could not update last requested time for %q: %v", email, err),
+			Code:    http.StatusInternalServerError,
+		}
+	}
+	return out.Token, nil
 }
 
 func (db *DB) addUser(email string) (string, error) {

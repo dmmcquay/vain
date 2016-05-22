@@ -26,7 +26,7 @@
                 <div class="collapse navbar-collapse" id="bs-example-navbar-collapse-1">
                     <ul class="nav navbar-nav">
                         <li>
-                            <a href="/about/">About</a>
+                            <a href="/_static/register/">register</a>
                         </li>
                     </ul>
                 </div>
@@ -34,15 +34,27 @@
         </nav>
 
         <div class="container">
-            <div class="row">
-                <div class="col-lg-12 text-center">
-                    <h1>Vain</h1>
-                    <p class="lead">vaind is a vanity url server for use by the go tool.</p>
-                    <h2>Installation</h2>
-                    <p>running $ go get mcquay.me/vain/cmd/vaind</p>
-                    <h2>Running Server</h2>
-                    <p>$ vaind database</p>
+            <h1>Forgot token</h1>
+            <p>If you've forgotten your token please provide an email and instructions will be sent you you.</p>
+
+            <div id="alert" class="alert alert-danger" style="display: none;">placeholder</div>
+            <div id="success" class="alert alert-success" style="display: none;" role="alert">...</div>
+
+
+            <div id="input" class="row">
+                <div class="col-md-2"></div>
+                <div class="input-group col-md-6">
+                    <span class="input-group-addon">
+                        <span class="glyphicon glyphicon-envelope"></span>
+                    </span>
+                    <input type="text" class="form-control" id="name" placeholder="Email address" autofocus>
+                    <span class="input-group-btn">
+                        <button id="send" class="btn btn-block" type="button">        
+                            <span class="glyphicon glyphicon-send"></span> &nbsp; Submit
+                        </button>                                                       
+                    </span>
                 </div>
+                <div class="col-md-4"></div>
             </div>
         </div>
 

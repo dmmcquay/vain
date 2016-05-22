@@ -154,7 +154,13 @@ func (s *Server) register(w http.ResponseWriter, req *http.Request) {
 		proto = "http"
 	}
 	log.Printf("%s://%s/api/v0/confirm/%+v", proto, req.Host, tok)
-	fmt.Fprintf(w, "please check your email\n")
+	resp := struct {
+		Msg string `json:"msg"`
+	}{
+		Msg: "please check your email\n",
+	}
+	w.Header().Set("Content-type", "application/json")
+	json.NewEncoder(w).Encode(resp)
 }
 
 func (s *Server) confirm(w http.ResponseWriter, req *http.Request) {
@@ -192,7 +198,13 @@ func (s *Server) forgot(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 	log.Printf("http://%s/api/v0/confirm/%+v", req.Host, tok)
-	fmt.Fprintf(w, "please check your email\n")
+	resp := struct {
+		Msg string `json:"msg"`
+	}{
+		Msg: "please check your email\n",
+	}
+	w.Header().Set("Content-type", "application/json")
+	json.NewEncoder(w).Encode(resp)
 }
 func (s *Server) pkgs(w http.ResponseWriter, req *http.Request) {
 	w.Header().Set("Content-type", "application/json")

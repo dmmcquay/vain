@@ -17,19 +17,27 @@ $(function() {
 
 function send() {
     $("#alert").hide();
+    $("#success").hide();
     var name = $("#name").val();
     if (name == "") {
         $("#name-holder").removeClass("has-warning has-default").addClass("has-error");
         $("#alert").show().text("Please provide an email address.");
     } else {
-        $.get(
-                "/api/v0/register/?email="+name
-             ).done(function(data) {
-            $("#name").val("");
-            console.log(data);          
-        }).fail(function(e) {
-                 $("#alert").show().text(e.statusText + ": " + e.responseText);
-                 console.error(e);                                             
-             });
+        route = "/api/v0/register/?email="+name;
+        if(window.location.href.indexOf("forgot") > -1) {
+            route = "/api/v0/forgot/?email="+name;
+        }
+        $.get(route).done(
+            function(data) {
+                $("#input").val("").hide();
+                console.error(data);          
+                $("#success").text(data["msg"]).show();
+            }
+        ).fail(
+            function(e) {
+                $("#alert").show().text(e.responseText);
+                console.error(e);                                             
+            }
+        );
     }
 };

@@ -26,7 +26,7 @@
                 <div class="collapse navbar-collapse" id="bs-example-navbar-collapse-1">
                     <ul class="nav navbar-nav">
                         <li>
-                            <a href="/_static/about/">About</a>
+                            <a href="/_static/register/">register</a>
                         </li>
                     </ul>
                 </div>
@@ -34,21 +34,29 @@
         </nav>
 
         <div class="container">
-            <div class="row">
-                <div class="col-lg-12 text-center">
-                    <h1>Register Email</h1>
-                    <div class="input-group input-group-lg">
-                        <span class="input-group-addon">
-                            <span class="glyphicon glyphicon-envelope"></span>
-                        </span>
-                        <input type="text" class="form-control input-sm" id="name" placeholder="Email address" autofocus>
-                    </div>
+            <h1>Vain</h1>
+            <p class="lead"> This server implements <a href="https://golang.org/cmd/go/#hdr-Remote_import_paths">remote import paths</a> for use by the <a href="https://golang.org/cmd/go/">go tool</a>. </p>
 
-                    <button id="send" class="btn btn-lg btn-block" type="button">        
-                        <span class="glyphicon glyphicon-send"></span> &nbsp; Submit
-                    </button>                                                       
-                </div>
-            </div>
+            <h2>Adding a repository</h2>
+            <p>
+            The first step is to obtain an api key. Visit the <a href="/_static/register/">registration page</a>
+            and follow the instructions to obtain a key.
+            </p>
+            <p> Let's say you've got some code hosted at <code>https://git.example.com/user/foo</code> that you'd like to publish with <code>/me/foo</code>. Armed with the token you previously obtained (e.g. <code>c033-b79f-7fa1</code>) </p>
+            <p>
+            <pre>
+$ export TOKEN=c033-b79f-7fa1
+$ curl -i -H "Authorization: Bearer $TOKEN" -d '{"repo": "https://git.example.com/user/foo"}' https://vain/me/foo </pre>
+            </p>
+            <h2>Deleting a repository</h2>
+            <p>Using the appropriate token for the route you want to delete:</p>
+            <pre>
+$ curl -i -H "Authorization: Bearer $TOKEN" -X DELETE https://vain/me/foo </pre>
+
+            <h2>go tool</h2>
+            <p> The <a href="https://golang.org/cmd/go/#hdr-Download_and_install_packages_and_dependencies">go tool</a> doesn't need any modification in order to work, e.g. if vain is hosted on <code>https://go.example.com</code>: </p> <pre>$ go get go.example.com/foo</pre>
+            <p> should just work. A possible wrinkle is if the site is not hosted using TLS. In which case please encrypt your site. If this is impossible and you're not concerned with adversarial manipulation of your source (as would perhaps be the case during development) you can tell the go tool to run in insecure mode. Use with caution. </p>
+
         </div>
 
         <script src="/_static/js/jquery.js"></script>

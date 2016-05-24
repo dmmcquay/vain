@@ -7,16 +7,20 @@ import (
 	"time"
 
 	"github.com/jmoiron/sqlx"
+	// for side effects
 	_ "github.com/mattn/go-sqlite3"
 
 	verrors "mcquay.me/vain/errors"
 	vsql "mcquay.me/vain/sql"
 )
 
+// DB wraps a sqlx.DB connection and provides methods for interating with
+// a vain database.
 type DB struct {
 	conn *sqlx.DB
 }
 
+// NewDB opens a sqlite3 file, sets options, and reports errors.
 func NewDB(path string) (*DB, error) {
 	conn, err := sqlx.Open("sqlite3", fmt.Sprintf("file:%s?cache=shared&mode=rwc", path))
 	if _, err := conn.Exec("PRAGMA foreign_keys = ON"); err != nil {
@@ -25,6 +29,7 @@ func NewDB(path string) (*DB, error) {
 	return &DB{conn}, err
 }
 
+// Init runs the embedded sql to initialize tables.
 func (db *DB) Init() error {
 	content, err := vsql.Asset("sql/init.sql")
 	if err != nil {
@@ -34,10 +39,12 @@ func (db *DB) Init() error {
 	return err
 }
 
+// Close the underlying connection.
 func (db *DB) Close() error {
 	return db.conn.Close()
 }
 
+// AddPackage adds p into packages table.
 func (db *DB) AddPackage(p Package) error {
 	_, err := db.conn.NamedExec(
 		"INSERT INTO packages(vcs, repo, path, ns) VALUES (:vcs, :repo, :path, :ns)",
@@ -46,11 +53,13 @@ func (db *DB) AddPackage(p Package) error {
 	return err
 }
 
+// RemovePackage removes package with given path
 func (db *DB) RemovePackage(path string) error {
 	_, err := db.conn.Exec("DELETE FROM packages WHERE path = ?", path)
 	return err
 }
 
+// Pkgs returns all packages from the database
 func (db *DB) Pkgs() []Package {
 	r := []Package{}
 	rows, err := db.conn.Queryx("SELECT * FROM packages")
@@ -70,6 +79,7 @@ func (db *DB) Pkgs() []Package {
 	return r
 }
 
+// PackageExists tells if a package with path is in the database.
 func (db *DB) PackageExists(path string) bool {
 	var count int
 	if err := db.conn.Get(&count, "SELECT COUNT(*) FROM packages WHERE path = ?", path); err != nil {
@@ -86,12 +96,14 @@ func (db *DB) PackageExists(path string) bool {
 	return r
 }
 
+// Package fetches the package associated with path.
 func (db *DB) Package(path string) (Package, error) {
 	r := Package{}
 	err := db.conn.Get(&r, "SELECT * FROM packages WHERE path = ?", path)
 	return r, err
 }
 
+// NSForToken creates an entry namespaces with a relation to the token.
 func (db *DB) NSForToken(ns string, tok string) error {
 	var err error
 	txn, err := db.conn.Beginx()
@@ -148,13 +160,14 @@ func (db *DB) NSForToken(ns string, tok string) error {
 		}
 	default:
 		err = verrors.HTTP{
-			Message: fmt.Sprintf("inconsistent db; found %d results with ns (%s) with token (%s): %d", count, ns, tok),
+			Message: fmt.Sprintf("inconsistent db; found %d results with ns (%s) with token (%s)", count, ns, tok),
 			Code:    http.StatusInternalServerError,
 		}
 	}
 	return err
 }
 
+// Register adds email to the database, returning an error if there was one.
 func (db *DB) Register(email string) (string, error) {
 	var err error
 	txn, err := db.conn.Beginx()
@@ -197,6 +210,7 @@ func (db *DB) Register(email string) (string, error) {
 	return tok, err
 }
 
+// Confirm  modifies the user with the given token. Used on register confirmation.
 func (db *DB) Confirm(token string) (string, error) {
 	var err error
 	txn, err := db.conn.Beginx()

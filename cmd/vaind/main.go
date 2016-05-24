@@ -116,7 +116,7 @@ func main() {
 	}
 	hostname := "localhost"
 	if hn, err := os.Hostname(); err != nil {
-		log.Printf("problem getting hostname:", err)
+		log.Printf("problem getting hostname: %v", err)
 	} else {
 		hostname = hn
 	}

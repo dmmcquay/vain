@@ -69,6 +69,7 @@ func parseNamespace(path string) (string, error) {
 	return elems[0], nil
 }
 
+// FreshToken returns a random token string.
 func FreshToken() string {
 	buf := &bytes.Buffer{}
 	io.Copy(buf, io.LimitReader(rand.Reader, 6))

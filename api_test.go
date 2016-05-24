@@ -27,7 +27,7 @@ func TestAdd(t *testing.T) {
 	ts := httptest.NewServer(sm)
 	tok, err := db.addUser("sm@example.org")
 	if err != nil {
-		t.Error("failure to add user: %v", err)
+		t.Fatalf("failure to add user: %v", err)
 	}
 
 	resp, err := http.Get(ts.URL)
@@ -173,7 +173,7 @@ func TestInvalidPath(t *testing.T) {
 	ts := httptest.NewServer(sm)
 	tok, err := db.addUser("sm@example.org")
 	if err != nil {
-		t.Error("failure to add user: %v", err)
+		t.Errorf("failure to add user: %v", err)
 	}
 
 	bad := ts.URL
@@ -206,7 +206,7 @@ func TestCannotDuplicateExistingPath(t *testing.T) {
 
 	tok, err := db.addUser("sm@example.org")
 	if err != nil {
-		t.Error("failure to add user: %v", err)
+		t.Errorf("failure to add user: %v", err)
 	}
 
 	u := fmt.Sprintf("%s/foo", ts.URL)
@@ -252,7 +252,7 @@ func TestCannotAddExistingSubPath(t *testing.T) {
 
 	tok, err := db.addUser("sm@example.org")
 	if err != nil {
-		t.Error("failure to add user: %v", err)
+		t.Fatalf("failure to add user: %v", err)
 	}
 
 	{
@@ -300,7 +300,7 @@ func TestMissingRepo(t *testing.T) {
 
 	tok, err := db.addUser("sm@example.org")
 	if err != nil {
-		t.Error("failure to add user: %v", err)
+		t.Fatalf("failure to add user: %v", err)
 	}
 
 	u := fmt.Sprintf("%s/foo", ts.URL)
@@ -333,7 +333,7 @@ func TestBadJson(t *testing.T) {
 
 	tok, err := db.addUser("sm@example.org")
 	if err != nil {
-		t.Error("failure to add user: %v", err)
+		t.Fatalf("failure to add user: %v", err)
 	}
 
 	u := fmt.Sprintf("%s/foo", ts.URL)
@@ -395,7 +395,7 @@ func TestBadVcs(t *testing.T) {
 
 	tok, err := db.addUser("sm@example.org")
 	if err != nil {
-		t.Error("failure to add user: %v", err)
+		t.Fatalf("failure to add user: %v", err)
 	}
 
 	u := fmt.Sprintf("%s/foo", ts.URL)
@@ -426,7 +426,7 @@ func TestUnsupportedMethod(t *testing.T) {
 
 	tok, err := db.addUser("sm@example.org")
 	if err != nil {
-		t.Error("failure to add user: %v", err)
+		t.Fatalf("failure to add user: %v", err)
 	}
 
 	url := fmt.Sprintf("%s/foo", ts.URL)
@@ -458,7 +458,7 @@ func TestDelete(t *testing.T) {
 
 	tok, err := db.addUser("sm@example.org")
 	if err != nil {
-		t.Error("failure to add user: %v", err)
+		t.Fatalf("failure to add user: %v", err)
 	}
 	t.Logf("%v", tok)
 	if len(db.Pkgs()) != 0 {

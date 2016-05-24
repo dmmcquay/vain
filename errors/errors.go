@@ -5,6 +5,7 @@ import (
 	"net/http"
 )
 
+// HTTP implements error and keeps track of http return codes.
 type HTTP struct {
 	error
 	Message string
@@ -15,6 +16,7 @@ func (e HTTP) Error() string {
 	return fmt.Sprintf("%d: %s", e.Code, e.Message)
 }
 
+// ToHTTP wraps the type assertion to change an error into an HTTP.
 func ToHTTP(err error) *HTTP {
 	if err == nil {
 		return nil

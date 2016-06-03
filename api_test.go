@@ -508,3 +508,57 @@ func TestDelete(t *testing.T) {
 		}
 	}
 }
+
+func TestSingleGet(t *testing.T) {
+	db, done := testDB(t)
+	if db == nil {
+		t.Fatalf("could not create temp db")
+	}
+	defer done()
+
+	sm := http.NewServeMux()
+	NewServer(sm, db, "", window)
+	ts := httptest.NewServer(sm)
+
+	tok, err := db.addUser("sm@example.org")
+	if err != nil {
+		t.Fatalf("failure to add user: %v", err)
+	}
+
+	ns := "foo"
+
+	if err := db.NSForToken(ns, tok); err != nil {
+		t.Fatalf("could not initialize namespace %q for user %q: %v", ns, tok, err)
+	}
+
+	p := Package{
+		Vcs:  "git",
+		Repo: "https://example.org/foo",
+		Path: fmt.Sprintf("%s/foo/bar", strings.TrimPrefix(ts.URL, "http://")),
+		Ns:   ns,
+	}
+	if err := db.AddPackage(p); err != nil {
+		t.Fatalf("couldn't add package %v: %v", p, err)
+	}
+
+	{
+		// expected failure
+		resp, err := http.Get(ts.URL + "/bleh/blah?go-get=1")
+		if err != nil {
+			t.Fatalf("problem getting route: %v", err)
+		}
+		if got, want := resp.StatusCode, http.StatusNotFound; got != want {
+			t.Fatalf("should have failed to GET unknown route; got %s, want %s", http.StatusText(got), http.StatusText(want))
+		}
+	}
+	{
+		url := ts.URL + "/foo/bar?go-get=1"
+		resp, err := http.Get(url)
+		if err != nil {
+			t.Fatalf("problem getting route: %v", err)
+		}
+		if got, want := resp.StatusCode, http.StatusOK; got != want {
+			t.Fatalf("should have failed to GET unknown route; got %s, want %s", http.StatusText(got), http.StatusText(want))
+		}
+	}
+}

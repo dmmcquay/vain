@@ -1,6 +1,7 @@
 package vain
 
 import (
+	"database/sql"
 	"fmt"
 	"log"
 	"net/http"
@@ -100,6 +101,12 @@ func (db *DB) PackageExists(path string) bool {
 func (db *DB) Package(path string) (Package, error) {
 	r := Package{}
 	err := db.conn.Get(&r, "SELECT * FROM packages WHERE path = ?", path)
+	if err == sql.ErrNoRows {
+		return r, verrors.HTTP{
+			Message: fmt.Sprintf("couldn't find package %q", path),
+			Code:    http.StatusNotFound,
+		}
+	}
 	return r, err
 }
 

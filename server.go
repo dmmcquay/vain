@@ -54,11 +54,20 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 			http.Redirect(w, req, prefix["static"], http.StatusTemporaryRedirect)
 			return
 		}
-		fmt.Fprintf(w, "<!DOCTYPE html>\n<html><head>\n")
-		for _, p := range s.db.Pkgs() {
-			fmt.Fprintf(w, "%s\n", p)
+		if req.URL.Path == "/" {
+			fmt.Fprintf(w, "<!DOCTYPE html>\n<html><head>\n")
+			for _, p := range s.db.Pkgs() {
+				fmt.Fprintf(w, "%s\n", p)
+			}
+			fmt.Fprintf(w, "</head>\n<body><p>go tool metadata in head</p></body>\n</html>\n")
+		} else {
+			p, err := s.db.Package(req.Host + req.URL.Path)
+			if err := verrors.ToHTTP(err); err != nil {
+				http.Error(w, err.Message, err.Code)
+				return
+			}
+			fmt.Fprintf(w, "<!DOCTYPE html>\n<html><head>\n%s\n</head>\n<body><p>go tool metadata in head</p></body>\n</html>\n", p)
 		}
-		fmt.Fprintf(w, "</head>\n<body><p>go tool metadata in head</p></body>\n</html>\n")
 		return
 	}
 
@@ -207,6 +216,7 @@ func (s *Server) forgot(w http.ResponseWriter, req *http.Request) {
 	w.Header().Set("Content-type", "application/json")
 	json.NewEncoder(w).Encode(resp)
 }
+
 func (s *Server) pkgs(w http.ResponseWriter, req *http.Request) {
 	w.Header().Set("Content-type", "application/json")
 	json.NewEncoder(w).Encode(s.db.Pkgs())

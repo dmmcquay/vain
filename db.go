@@ -319,3 +319,19 @@ func (db *DB) addUser(email string) (string, error) {
 	)
 	return tok, err
 }
+
+func (db *DB) user(email string) (User, error) {
+	u := User{}
+	err := db.conn.Get(
+		&u,
+		"SELECT email, token, registered, requested FROM users WHERE email = ?",
+		email,
+	)
+	if err == sql.ErrNoRows {
+		return User{}, verrors.HTTP{
+			Message: fmt.Sprintf("could not find requested user's email: %q: %v", email, err),
+			Code:    http.StatusNotFound,
+		}
+	}
+	return u, err
+}

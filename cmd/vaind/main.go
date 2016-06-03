@@ -55,7 +55,8 @@ import (
 const usage = "vaind [init] <dbname>"
 
 type config struct {
-	Port int
+	Port     int
+	Insecure bool
 
 	Cert string
 	Key  string
@@ -63,6 +64,11 @@ type config struct {
 	Static string
 
 	EmailTimeout time.Duration `envconfig:"email_timeout"`
+
+	SMTPHost string `envconfig:"smtp_host"`
+	SMTPPort int    `envconfig:"smtp_port"`
+
+	From string
 }
 
 func main() {
@@ -101,6 +107,7 @@ func main() {
 	c := &config{
 		Port:         4040,
 		EmailTimeout: 5 * time.Minute,
+		SMTPPort:     25,
 	}
 	if err := envconfig.Process("vain", c); err != nil {
 		fmt.Fprintf(os.Stderr, "problem processing environment: %v", err)
@@ -114,6 +121,13 @@ func main() {
 			os.Exit(0)
 		}
 	}
+
+	m, err := vain.NewEmail(c.From, c.SMTPHost, c.SMTPPort)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "problem initializing mailer: %v", err)
+		os.Exit(1)
+	}
+
 	hostname := "localhost"
 	if hn, err := os.Hostname(); err != nil {
 		log.Printf("problem getting hostname: %v", err)
@@ -122,7 +136,7 @@ func main() {
 	}
 	log.Printf("serving at: http://%s:%d/", hostname, c.Port)
 	sm := http.NewServeMux()
-	vain.NewServer(sm, db, c.Static, c.EmailTimeout)
+	vain.NewServer(sm, db, m, c.Static, c.EmailTimeout, c.Insecure)
 	addr := fmt.Sprintf(":%d", c.Port)
 
 	if c.Cert == "" || c.Key == "" {

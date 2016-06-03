@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"io"
 	"strings"
+	"time"
 )
 
 var vcss = map[string]bool{
@@ -39,6 +40,15 @@ type Package struct {
 
 	Path string `json:"path"`
 	Ns   string `json:"-"`
+}
+
+// User stores the information about a user including email used, their
+// token, whether they have registerd and the requested timestamp
+type User struct {
+	Email      string
+	Token      string
+	Registered bool
+	Requested  time.Time
 }
 
 func (p Package) String() string {

@@ -3,7 +3,6 @@ package vain
 import (
 	"encoding/json"
 	"fmt"
-	"log"
 	"net/http"
 	"net/mail"
 	"strings"
@@ -16,6 +15,7 @@ import (
 )
 
 const apiPrefix = "/api/v0/"
+const emailSubject = "your api token"
 
 var prefix map[string]string
 
@@ -29,22 +29,26 @@ func init() {
 	}
 }
 
-// NewServer populates a server, adds the routes, and returns it for use.
-func NewServer(sm *http.ServeMux, store *DB, static string, emailTimeout time.Duration) *Server {
-	s := &Server{
-		db:           store,
-		static:       static,
-		emailTimeout: emailTimeout,
-	}
-	addRoutes(sm, s)
-	return s
-}
-
 // Server serves up the http.
 type Server struct {
 	db           *DB
 	static       string
 	emailTimeout time.Duration
+	mail         Mailer
+	insecure     bool
+}
+
+// NewServer populates a server, adds the routes, and returns it for use.
+func NewServer(sm *http.ServeMux, store *DB, m Mailer, static string, emailTimeout time.Duration, insecure bool) *Server {
+	s := &Server{
+		db:           store,
+		static:       static,
+		emailTimeout: emailTimeout,
+		mail:         m,
+		insecure:     insecure,
+	}
+	addRoutes(sm, s)
+	return s
 }
 
 func (s *Server) ServeHTTP(w http.ResponseWriter, req *http.Request) {
@@ -148,26 +152,36 @@ func (s *Server) register(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	addr := email[0]
-	if _, err := mail.ParseAddress(addr); err != nil {
+	addr, err := mail.ParseAddress(email[0])
+	if err != nil {
 		http.Error(w, fmt.Sprintf("invalid email detected: %v", err), http.StatusBadRequest)
 		return
 	}
 
-	tok, err := s.db.Register(addr)
+	tok, err := s.db.Register(addr.Address)
 	if err := verrors.ToHTTP(err); err != nil {
 		http.Error(w, err.Message, err.Code)
 		return
 	}
+
 	proto := "https"
-	if req.TLS == nil {
+	if s.insecure {
 		proto = "http"
 	}
-	log.Printf("%s://%s/api/v0/confirm/%+v", proto, req.Host, tok)
 	resp := struct {
 		Msg string `json:"msg"`
 	}{
 		Msg: "please check your email\n",
+	}
+
+	err = s.mail.Send(
+		*addr,
+		"your api string",
+		fmt.Sprintf("%s://%s/api/v0/confirm/%+v", proto, req.Host, tok),
+	)
+	if err != nil {
+		resp.Msg = fmt.Sprintf("problem sending email: %v", err)
+		w.WriteHeader(http.StatusInternalServerError)
 	}
 	w.Header().Set("Content-type", "application/json")
 	json.NewEncoder(w).Encode(resp)
@@ -196,22 +210,35 @@ func (s *Server) forgot(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	addr := email[0]
-	if _, err := mail.ParseAddress(addr); err != nil {
+	addr, err := mail.ParseAddress(email[0])
+	if err != nil {
 		http.Error(w, fmt.Sprintf("invalid email detected: %v", err), http.StatusBadRequest)
 		return
 	}
 
-	tok, err := s.db.forgot(addr, s.emailTimeout)
+	tok, err := s.db.forgot(addr.Address, s.emailTimeout)
 	if err := verrors.ToHTTP(err); err != nil {
 		http.Error(w, err.Message, err.Code)
 		return
 	}
-	log.Printf("http://%s/api/v0/confirm/%+v", req.Host, tok)
+	proto := "https"
+	if s.insecure {
+		proto = "http"
+	}
 	resp := struct {
 		Msg string `json:"msg"`
 	}{
 		Msg: "please check your email\n",
+	}
+
+	err = s.mail.Send(
+		*addr,
+		emailSubject,
+		fmt.Sprintf("%s://%s/api/v0/confirm/%+v", proto, req.Host, tok),
+	)
+	if err != nil {
+		resp.Msg = fmt.Sprintf("problem sending email: %v", err)
+		w.WriteHeader(http.StatusInternalServerError)
 	}
 	w.Header().Set("Content-type", "application/json")
 	json.NewEncoder(w).Encode(resp)

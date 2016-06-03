@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -23,7 +24,7 @@ func TestAdd(t *testing.T) {
 	defer done()
 
 	sm := http.NewServeMux()
-	NewServer(sm, db, "", window)
+	NewServer(sm, db, nil, "", window, false)
 	ts := httptest.NewServer(sm)
 	tok, err := db.addUser("sm@example.org")
 	if err != nil {
@@ -169,7 +170,7 @@ func TestInvalidPath(t *testing.T) {
 	defer done()
 
 	sm := http.NewServeMux()
-	NewServer(sm, db, "", window)
+	NewServer(sm, db, nil, "", window, false)
 	ts := httptest.NewServer(sm)
 	tok, err := db.addUser("sm@example.org")
 	if err != nil {
@@ -201,7 +202,7 @@ func TestCannotDuplicateExistingPath(t *testing.T) {
 	defer done()
 
 	sm := http.NewServeMux()
-	NewServer(sm, db, "", window)
+	NewServer(sm, db, nil, "", window, false)
 	ts := httptest.NewServer(sm)
 
 	tok, err := db.addUser("sm@example.org")
@@ -247,7 +248,7 @@ func TestCannotAddExistingSubPath(t *testing.T) {
 	defer done()
 
 	sm := http.NewServeMux()
-	NewServer(sm, db, "", window)
+	NewServer(sm, db, nil, "", window, false)
 	ts := httptest.NewServer(sm)
 
 	tok, err := db.addUser("sm@example.org")
@@ -295,7 +296,7 @@ func TestMissingRepo(t *testing.T) {
 	defer done()
 
 	sm := http.NewServeMux()
-	NewServer(sm, db, "", window)
+	NewServer(sm, db, nil, "", window, false)
 	ts := httptest.NewServer(sm)
 
 	tok, err := db.addUser("sm@example.org")
@@ -328,7 +329,7 @@ func TestBadJson(t *testing.T) {
 	defer done()
 
 	sm := http.NewServeMux()
-	NewServer(sm, db, "", window)
+	NewServer(sm, db, nil, "", window, false)
 	ts := httptest.NewServer(sm)
 
 	tok, err := db.addUser("sm@example.org")
@@ -361,7 +362,7 @@ func TestNoAuth(t *testing.T) {
 	defer done()
 
 	sm := http.NewServeMux()
-	NewServer(sm, db, "", window)
+	NewServer(sm, db, nil, "", window, false)
 	ts := httptest.NewServer(sm)
 
 	u := fmt.Sprintf("%s/foo", ts.URL)
@@ -390,7 +391,7 @@ func TestBadVcs(t *testing.T) {
 	defer done()
 
 	sm := http.NewServeMux()
-	NewServer(sm, db, "", window)
+	NewServer(sm, db, nil, "", window, false)
 	ts := httptest.NewServer(sm)
 
 	tok, err := db.addUser("sm@example.org")
@@ -421,7 +422,7 @@ func TestUnsupportedMethod(t *testing.T) {
 	defer done()
 
 	sm := http.NewServeMux()
-	NewServer(sm, db, "", window)
+	NewServer(sm, db, nil, "", window, false)
 	ts := httptest.NewServer(sm)
 
 	tok, err := db.addUser("sm@example.org")
@@ -453,7 +454,7 @@ func TestDelete(t *testing.T) {
 	defer done()
 
 	sm := http.NewServeMux()
-	NewServer(sm, db, "", window)
+	NewServer(sm, db, nil, "", window, false)
 	ts := httptest.NewServer(sm)
 
 	tok, err := db.addUser("sm@example.org")
@@ -517,7 +518,7 @@ func TestSingleGet(t *testing.T) {
 	defer done()
 
 	sm := http.NewServeMux()
-	NewServer(sm, db, "", window)
+	NewServer(sm, db, nil, "", window, true)
 	ts := httptest.NewServer(sm)
 
 	tok, err := db.addUser("sm@example.org")
@@ -560,5 +561,204 @@ func TestSingleGet(t *testing.T) {
 		if got, want := resp.StatusCode, http.StatusOK; got != want {
 			t.Fatalf("should have failed to GET unknown route; got %s, want %s", http.StatusText(got), http.StatusText(want))
 		}
+	}
+}
+
+func TestRegister(t *testing.T) {
+	db, done := testDB(t)
+	if db == nil {
+		t.Fatalf("could not create temp db")
+	}
+	defer done()
+
+	sm := http.NewServeMux()
+	mm := &mockMail{}
+	NewServer(sm, db, mm, "", window, true)
+	ts := httptest.NewServer(sm)
+
+	u := fmt.Sprintf("%s%s", ts.URL, prefix["register"])
+	req, err := http.NewRequest("POST", u, nil)
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatalf("couldn't POST: %v", err)
+	}
+	if status := resp.StatusCode; status != http.StatusBadRequest {
+		t.Fatalf("handler returned wrong status code: got %v want %v",
+			status, http.StatusBadRequest)
+	}
+
+	u = fmt.Sprintf("%s%s?email=notARealEmail", ts.URL, prefix["register"])
+	req, err = http.NewRequest("POST", u, nil)
+	resp, err = http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatalf("couldn't POST: %v", err)
+	}
+	if status := resp.StatusCode; status != http.StatusBadRequest {
+		t.Fatalf("handler returned wrong status code: got %v want %v",
+			status, http.StatusBadRequest)
+	}
+
+	u = fmt.Sprintf("%s%s?email=fake@example.com", ts.URL, prefix["register"])
+	req, err = http.NewRequest("POST", u, nil)
+	_, err = http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatalf("couldn't POST: %v", err)
+	}
+
+	req, err = http.NewRequest("GET", mm.msg, nil)
+	_, err = http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatalf("couldn't POST: %v", err)
+	}
+
+	_, err = db.user("fake@example.com")
+	if err != nil {
+		t.Fatalf("user was no correctly added to database: %v", err)
+	}
+}
+
+func TestRoundTrip(t *testing.T) {
+	db, done := testDB(t)
+	if db == nil {
+		t.Fatalf("could not create temp db")
+	}
+	defer done()
+
+	sm := http.NewServeMux()
+	mm := &mockMail{}
+	NewServer(sm, db, mm, "", window, true)
+	ts := httptest.NewServer(sm)
+
+	u := fmt.Sprintf("%s%s?email=fake@example.com", ts.URL, prefix["register"])
+	req, err := http.NewRequest("POST", u, nil)
+	_, err = http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatalf("couldn't POST: %v", err)
+	}
+
+	req, err = http.NewRequest("GET", mm.msg, nil)
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatalf("couldn't POST: %v", err)
+	}
+
+	_, err = db.user("fake@example.com")
+	if err != nil {
+		t.Fatalf("user was no correctly added to database: %v", err)
+	}
+	bs, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		t.Fatalf("Failed to parse response body: %v", err)
+	}
+	tok := strings.Trim(string(bs), "new token: ")
+
+	u = fmt.Sprintf("%s/foo", ts.URL)
+	body := strings.NewReader(`{"repo": "https://s.mcquay.me/sm/vain"}`)
+	req, err = http.NewRequest("POST", u, body)
+	req.Header.Add("Content-Type", "application/json")
+	req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", tok))
+	resp, err = http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatalf("couldn't POST: %v", err)
+	}
+
+	if got, want := len(db.Pkgs()), 1; got != want {
+		t.Fatalf("pkgs should have something in it; got %d, want %d", got, want)
+	}
+}
+
+func TestForgot(t *testing.T) {
+	db, done := testDB(t)
+	if db == nil {
+		t.Fatalf("could not create temp db")
+	}
+	defer done()
+
+	sm := http.NewServeMux()
+	mm := &mockMail{}
+	NewServer(sm, db, mm, "", window, true)
+	ts := httptest.NewServer(sm)
+
+	//try to do forget before user is added
+	u := fmt.Sprintf("%s%s?email=fake@example.com", ts.URL, prefix["forgot"])
+	req, err := http.NewRequest("POST", u, nil)
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatalf("couldn't POST: %v", err)
+	}
+	if status := resp.StatusCode; status != http.StatusNotFound {
+		t.Fatalf("handler returned wrong status code: got %v want %v",
+			status, http.StatusBadRequest)
+	}
+
+	u = fmt.Sprintf("%s%s?email=notARealEmail", ts.URL, prefix["forgot"])
+	req, err = http.NewRequest("POST", u, nil)
+	resp, err = http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatalf("couldn't POST: %v", err)
+	}
+	if status := resp.StatusCode; status != http.StatusBadRequest {
+		t.Fatalf("handler returned wrong status code: got %v want %v",
+			status, http.StatusBadRequest)
+	}
+
+	//register a new user
+	u = fmt.Sprintf("%s%s?email=fake@example.com", ts.URL, prefix["register"])
+	req, err = http.NewRequest("POST", u, nil)
+	_, err = http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatalf("couldn't POST: %v", err)
+	}
+	req, err = http.NewRequest("GET", mm.msg, nil)
+	resp, err = http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatalf("couldn't POST: %v", err)
+	}
+
+	//check database for new user
+	_, err = db.user("fake@example.com")
+	if err != nil {
+		t.Fatalf("user was no correctly added to database: %v", err)
+	}
+	bs, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		t.Fatalf("Failed to parse response body: %v", err)
+	}
+	iniTok := strings.Trim(string(bs), "new token: ")
+
+	//get new token for user (using forgot)
+	u = fmt.Sprintf("%s%s?email=fake@example.com", ts.URL, prefix["forgot"])
+	req, err = http.NewRequest("POST", u, nil)
+	_, err = http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatalf("couldn't POST: %v", err)
+	}
+	req, err = http.NewRequest("GET", mm.msg, nil)
+	resp, err = http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatalf("couldn't POST: %v", err)
+	}
+	ft, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		t.Fatalf("Failed to parse response body: %v", err)
+	}
+	recTok := strings.Trim(string(ft), "new token: ")
+
+	if iniTok == recTok {
+		t.Fatalf("tokens should not be the same; old token %s, new token %s", iniTok, recTok)
+	}
+
+	//add new pkg using new token
+	u = fmt.Sprintf("%s/bar", ts.URL)
+	body := strings.NewReader(`{"repo": "https://s.mcquay.me/sm/vain"}`)
+	req, err = http.NewRequest("POST", u, body)
+	req.Header.Add("Content-Type", "application/json")
+	req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", recTok))
+	resp, err = http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatalf("couldn't POST: %v", err)
+	}
+	if got, want := len(db.Pkgs()), 1; got != want {
+		t.Fatalf("pkgs should have something in it; got %d, want %d", got, want)
 	}
 }

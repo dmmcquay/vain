@@ -113,6 +113,13 @@ func TestValid(t *testing.T) {
 			in:   "foo/bar/baz",
 			want: true,
 		},
+		{
+			pkgs: []Package{
+				{Path: "a/b"},
+			},
+			in:   "a/bb",
+			want: true,
+		},
 	}
 	for _, test := range tests {
 		got := Valid(test.in, test.pkgs)

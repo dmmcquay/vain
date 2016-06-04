@@ -50,10 +50,24 @@ func (p Package) String() string {
 	)
 }
 
+func splitPathHasPrefix(path, prefix []string) bool {
+	if len(path) < len(prefix) {
+		return false
+	}
+	for i, p := range prefix {
+		if path[i] != p {
+			return false
+		}
+	}
+	return true
+}
+
 // Valid checks that p will not confuse the go tool if added to packages.
 func Valid(p string, packages []Package) bool {
+	ps := strings.Split(p, "/")
 	for _, pkg := range packages {
-		if strings.HasPrefix(pkg.Path, p) || strings.HasPrefix(p, pkg.Path) {
+		pre := strings.Split(pkg.Path, "/")
+		if splitPathHasPrefix(ps, pre) || splitPathHasPrefix(pre, ps) {
 			return false
 		}
 	}

@@ -12,6 +12,7 @@ import (
 	"github.com/elazarl/go-bindata-assetfs"
 
 	verrors "mcquay.me/vain/errors"
+	"mcquay.me/vain/static"
 )
 
 const apiPrefix = "/api/v0/"
@@ -219,9 +220,9 @@ func addRoutes(sm *http.ServeMux, s *Server) {
 			prefix["static"],
 			http.FileServer(
 				&assetfs.AssetFS{
-					Asset:     Asset,
-					AssetDir:  AssetDir,
-					AssetInfo: AssetInfo,
+					Asset:     static.Asset,
+					AssetDir:  static.AssetDir,
+					AssetInfo: static.AssetInfo,
 				},
 			),
 		)

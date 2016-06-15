@@ -113,14 +113,26 @@ func main() {
 		fmt.Fprintf(os.Stderr, "problem processing environment: %v", err)
 		os.Exit(1)
 	}
-	log.Printf("%+v", c)
 	if len(os.Args) > 1 {
 		switch os.Args[1] {
-		case "env", "e", "help", "h":
+		case "env", "e":
+			fmt.Printf("VAIN_PORT:           %v\n", c.Port)
+			fmt.Printf("VAIN_INSECURE:       %v\n", c.Insecure)
+			fmt.Printf("VAIN_CERT:           %v\n", c.Cert)
+			fmt.Printf("VAIN_KEY:            %v\n", c.Key)
+			fmt.Printf("VAIN_STATIC:         %v\n", c.Static)
+			fmt.Printf("VAIN_EMAIL_TIMEOUT:  %v\n", c.EmailTimeout)
+			fmt.Printf("VAIN_SMTP_HOST:      %v\n", c.SMTPHost)
+			fmt.Printf("VAIN_SMTP_PORT:      %v\n", c.SMTPPort)
+			fmt.Printf("VAIN_FROM:           %v\n", c.From)
+			os.Exit(0)
+		case "help", "h":
 			fmt.Printf("%s\n", usage)
 			os.Exit(0)
 		}
 	}
+
+	log.Printf("%+v", c)
 
 	m, err := vain.NewEmail(c.From, c.SMTPHost, c.SMTPPort)
 	if err != nil {

@@ -631,15 +631,27 @@ func TestRoundTrip(t *testing.T) {
 
 	u := fmt.Sprintf("%s%s?email=fake@example.com", ts.URL, prefix["register"])
 	req, err := http.NewRequest("POST", u, nil)
-	_, err = http.DefaultClient.Do(req)
-	if err != nil {
-		t.Fatalf("couldn't POST: %v", err)
-	}
-
-	req, err = http.NewRequest("GET", mm.msg, nil)
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		t.Fatalf("couldn't POST: %v", err)
+	}
+	if got, want := resp.StatusCode, http.StatusOK; got != want {
+		buf := &bytes.Buffer{}
+		io.Copy(buf, resp.Body)
+		t.Logf("%s", buf.Bytes())
+		t.Fatalf("bad request got incorrect status: got %d, want %d", got, want)
+	}
+
+	req, err = http.NewRequest("GET", mm.msg, nil)
+	resp, err = http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatalf("couldn't POST: %v", err)
+	}
+	if got, want := resp.StatusCode, http.StatusOK; got != want {
+		buf := &bytes.Buffer{}
+		io.Copy(buf, resp.Body)
+		t.Logf("%s", buf.Bytes())
+		t.Fatalf("bad request got incorrect status: got %d, want %d", got, want)
 	}
 
 	_, err = db.user("fake@example.com")
@@ -660,6 +672,12 @@ func TestRoundTrip(t *testing.T) {
 	resp, err = http.DefaultClient.Do(req)
 	if err != nil {
 		t.Fatalf("couldn't POST: %v", err)
+	}
+	if got, want := resp.StatusCode, http.StatusOK; got != want {
+		buf := &bytes.Buffer{}
+		io.Copy(buf, resp.Body)
+		t.Logf("%s", buf.Bytes())
+		t.Fatalf("bad request got incorrect status: got %d, want %d", got, want)
 	}
 
 	if got, want := len(db.Pkgs()), 1; got != want {
@@ -687,6 +705,9 @@ func TestForgot(t *testing.T) {
 		t.Fatalf("couldn't POST: %v", err)
 	}
 	if status := resp.StatusCode; status != http.StatusNotFound {
+		buf := &bytes.Buffer{}
+		io.Copy(buf, resp.Body)
+		t.Logf("%s", buf.Bytes())
 		t.Fatalf("handler returned wrong status code: got %v want %v",
 			status, http.StatusBadRequest)
 	}
@@ -698,6 +719,9 @@ func TestForgot(t *testing.T) {
 		t.Fatalf("couldn't POST: %v", err)
 	}
 	if status := resp.StatusCode; status != http.StatusBadRequest {
+		buf := &bytes.Buffer{}
+		io.Copy(buf, resp.Body)
+		t.Logf("%s", buf.Bytes())
 		t.Fatalf("handler returned wrong status code: got %v want %v",
 			status, http.StatusBadRequest)
 	}
@@ -713,6 +737,12 @@ func TestForgot(t *testing.T) {
 	resp, err = http.DefaultClient.Do(req)
 	if err != nil {
 		t.Fatalf("couldn't POST: %v", err)
+	}
+	if got, want := resp.StatusCode, http.StatusOK; got != want {
+		buf := &bytes.Buffer{}
+		io.Copy(buf, resp.Body)
+		t.Logf("%s", buf.Bytes())
+		t.Fatalf("bad request got incorrect status: got %d, want %d", got, want)
 	}
 
 	//check database for new user
@@ -738,6 +768,12 @@ func TestForgot(t *testing.T) {
 	if err != nil {
 		t.Fatalf("couldn't POST: %v", err)
 	}
+	if got, want := resp.StatusCode, http.StatusOK; got != want {
+		buf := &bytes.Buffer{}
+		io.Copy(buf, resp.Body)
+		t.Logf("%s", buf.Bytes())
+		t.Fatalf("bad request got incorrect status: got %d, want %d", got, want)
+	}
 	ft, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
 		t.Fatalf("Failed to parse response body: %v", err)
@@ -757,6 +793,12 @@ func TestForgot(t *testing.T) {
 	resp, err = http.DefaultClient.Do(req)
 	if err != nil {
 		t.Fatalf("couldn't POST: %v", err)
+	}
+	if got, want := resp.StatusCode, http.StatusOK; got != want {
+		buf := &bytes.Buffer{}
+		io.Copy(buf, resp.Body)
+		t.Logf("%s", buf.Bytes())
+		t.Fatalf("bad request got incorrect status: got %d, want %d", got, want)
 	}
 	if got, want := len(db.Pkgs()), 1; got != want {
 		t.Fatalf("pkgs should have something in it; got %d, want %d", got, want)

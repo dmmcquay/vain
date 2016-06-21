@@ -259,7 +259,7 @@ func (db *DB) Confirm(token string) (string, error) {
 	)
 	if err != nil {
 		return "", verrors.HTTP{
-			Message: fmt.Sprintf("couldn't update user with token %q", token),
+			Message: fmt.Sprintf("couldn't update user with token %q: %v", token, err),
 			Code:    http.StatusInternalServerError,
 		}
 	}

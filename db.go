@@ -137,10 +137,17 @@ func (db *DB) NSForToken(ns string, tok string) error {
 	}
 
 	if count == 0 {
+		var email string
+		if err = txn.Get(&email, "SELECT email FROM users WHERE token = $1", tok); err != nil {
+			return verrors.HTTP{
+				Message: fmt.Sprintf("could not find user for token %q", tok),
+				Code:    http.StatusInternalServerError,
+			}
+		}
 		if _, err = txn.Exec(
-			"INSERT INTO namespaces(ns, email) SELECT ?, users.email FROM users WHERE users.token = ?",
+			"INSERT INTO namespaces(ns, email) VALUES ($1, $2)",
 			ns,
-			tok,
+			email,
 		); err != nil {
 			return verrors.HTTP{
 				Message: fmt.Sprintf("problem inserting %q into namespaces for token %q: %v", ns, tok, err),

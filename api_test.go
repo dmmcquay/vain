@@ -650,7 +650,7 @@ func TestRoundTrip(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to parse response body: %v", err)
 	}
-	tok := strings.TrimSpace(strings.Trim(string(bs), "new token: "))
+	tok := strings.TrimSpace(strings.TrimPrefix(string(bs), "new token: "))
 
 	u = fmt.Sprintf("%s/foo", ts.URL)
 	body := strings.NewReader(`{"repo": "https://s.mcquay.me/sm/vain"}`)
@@ -724,7 +724,7 @@ func TestForgot(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to parse response body: %v", err)
 	}
-	iniTok := strings.Trim(string(bs), "new token: ")
+	iniTok := strings.TrimPrefix(string(bs), "new token: ")
 
 	//get new token for user (using forgot)
 	u = fmt.Sprintf("%s%s?email=fake@example.com", ts.URL, prefix["forgot"])
@@ -742,7 +742,7 @@ func TestForgot(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to parse response body: %v", err)
 	}
-	recTok := strings.TrimSpace(strings.Trim(string(ft), "new token: "))
+	recTok := strings.TrimSpace(strings.TrimPrefix(string(ft), "new token: "))
 
 	if iniTok == recTok {
 		t.Fatalf("tokens should not be the same; old token %s, new token %s", iniTok, recTok)

@@ -17,7 +17,7 @@ import (
 const window = 5 * time.Minute
 
 func TestAdd(t *testing.T) {
-	db, done := testDB(t)
+	db, done := TestDB(t)
 	if db == nil {
 		t.Fatalf("could not create temp db")
 	}
@@ -28,7 +28,7 @@ func TestAdd(t *testing.T) {
 	ts := httptest.NewServer(sm)
 	tok, err := db.addUser("sm@example.org")
 	if err != nil {
-		t.Fatalf("failure to add user: %v", err)
+		t.Errorf("failure to add user: %v", err)
 	}
 
 	resp, err := http.Get(ts.URL)
@@ -109,7 +109,7 @@ func TestAdd(t *testing.T) {
 
 		good := fmt.Sprintf("%s/foo", ur.Host)
 
-		if !db.PackageExists(good) {
+		if !db.PackageExists(path(good)) {
 			t.Fatalf("did not find package for %s; should have posted a valid package", good)
 		}
 		p, err := db.Package(good)
@@ -163,7 +163,7 @@ func TestAdd(t *testing.T) {
 }
 
 func TestInvalidPath(t *testing.T) {
-	db, done := testDB(t)
+	db, done := TestDB(t)
 	if db == nil {
 		t.Fatalf("could not create temp db")
 	}
@@ -195,7 +195,7 @@ func TestInvalidPath(t *testing.T) {
 }
 
 func TestCannotDuplicateExistingPath(t *testing.T) {
-	db, done := testDB(t)
+	db, done := TestDB(t)
 	if db == nil {
 		t.Fatalf("could not create temp db")
 	}
@@ -241,7 +241,7 @@ func TestCannotDuplicateExistingPath(t *testing.T) {
 }
 
 func TestCannotAddExistingSubPath(t *testing.T) {
-	db, done := testDB(t)
+	db, done := TestDB(t)
 	if db == nil {
 		t.Fatalf("could not create temp db")
 	}
@@ -253,7 +253,7 @@ func TestCannotAddExistingSubPath(t *testing.T) {
 
 	tok, err := db.addUser("sm@example.org")
 	if err != nil {
-		t.Fatalf("failure to add user: %v", err)
+		t.Errorf("failure to add user: %v", err)
 	}
 
 	{
@@ -289,7 +289,7 @@ func TestCannotAddExistingSubPath(t *testing.T) {
 }
 
 func TestMissingRepo(t *testing.T) {
-	db, done := testDB(t)
+	db, done := TestDB(t)
 	if db == nil {
 		t.Fatalf("could not create temp db")
 	}
@@ -301,7 +301,7 @@ func TestMissingRepo(t *testing.T) {
 
 	tok, err := db.addUser("sm@example.org")
 	if err != nil {
-		t.Fatalf("failure to add user: %v", err)
+		t.Errorf("failure to add user: %v", err)
 	}
 
 	u := fmt.Sprintf("%s/foo", ts.URL)
@@ -322,7 +322,7 @@ func TestMissingRepo(t *testing.T) {
 }
 
 func TestBadJson(t *testing.T) {
-	db, done := testDB(t)
+	db, done := TestDB(t)
 	if db == nil {
 		t.Fatalf("could not create temp db")
 	}
@@ -334,7 +334,7 @@ func TestBadJson(t *testing.T) {
 
 	tok, err := db.addUser("sm@example.org")
 	if err != nil {
-		t.Fatalf("failure to add user: %v", err)
+		t.Errorf("failure to add user: %v", err)
 	}
 
 	u := fmt.Sprintf("%s/foo", ts.URL)
@@ -355,7 +355,7 @@ func TestBadJson(t *testing.T) {
 }
 
 func TestNoAuth(t *testing.T) {
-	db, done := testDB(t)
+	db, done := TestDB(t)
 	if db == nil {
 		t.Fatalf("could not create temp db")
 	}
@@ -384,7 +384,7 @@ func TestNoAuth(t *testing.T) {
 }
 
 func TestBadVcs(t *testing.T) {
-	db, done := testDB(t)
+	db, done := TestDB(t)
 	if db == nil {
 		t.Fatalf("could not create temp db")
 	}
@@ -396,7 +396,7 @@ func TestBadVcs(t *testing.T) {
 
 	tok, err := db.addUser("sm@example.org")
 	if err != nil {
-		t.Fatalf("failure to add user: %v", err)
+		t.Errorf("failure to add user: %v", err)
 	}
 
 	u := fmt.Sprintf("%s/foo", ts.URL)
@@ -415,7 +415,7 @@ func TestBadVcs(t *testing.T) {
 }
 
 func TestUnsupportedMethod(t *testing.T) {
-	db, done := testDB(t)
+	db, done := TestDB(t)
 	if db == nil {
 		t.Fatalf("could not create temp db")
 	}
@@ -427,7 +427,7 @@ func TestUnsupportedMethod(t *testing.T) {
 
 	tok, err := db.addUser("sm@example.org")
 	if err != nil {
-		t.Fatalf("failure to add user: %v", err)
+		t.Errorf("failure to add user: %v", err)
 	}
 
 	url := fmt.Sprintf("%s/foo", ts.URL)
@@ -447,7 +447,7 @@ func TestUnsupportedMethod(t *testing.T) {
 }
 
 func TestDelete(t *testing.T) {
-	db, done := testDB(t)
+	db, done := TestDB(t)
 	if db == nil {
 		t.Fatalf("could not create temp db")
 	}
@@ -459,8 +459,9 @@ func TestDelete(t *testing.T) {
 
 	tok, err := db.addUser("sm@example.org")
 	if err != nil {
-		t.Fatalf("failure to add user: %v", err)
+		t.Errorf("failure to add user: %v", err)
 	}
+
 	t.Logf("%v", tok)
 	if len(db.Pkgs()) != 0 {
 		t.Fatalf("started with something in it; got %d, want %d", len(db.Pkgs()), 0)
@@ -511,7 +512,7 @@ func TestDelete(t *testing.T) {
 }
 
 func TestSingleGet(t *testing.T) {
-	db, done := testDB(t)
+	db, done := TestDB(t)
 	if db == nil {
 		t.Fatalf("could not create temp db")
 	}
@@ -523,10 +524,10 @@ func TestSingleGet(t *testing.T) {
 
 	tok, err := db.addUser("sm@example.org")
 	if err != nil {
-		t.Fatalf("failure to add user: %v", err)
+		t.Errorf("failure to add user: %v", err)
 	}
 
-	ns := "foo"
+	ns := namespace("foo")
 
 	if err := db.NSForToken(ns, tok); err != nil {
 		t.Fatalf("could not initialize namespace %q for user %q: %v", ns, tok, err)
@@ -565,7 +566,7 @@ func TestSingleGet(t *testing.T) {
 }
 
 func TestRegister(t *testing.T) {
-	db, done := testDB(t)
+	db, done := TestDB(t)
 	if db == nil {
 		t.Fatalf("could not create temp db")
 	}
@@ -618,7 +619,7 @@ func TestRegister(t *testing.T) {
 }
 
 func TestRoundTrip(t *testing.T) {
-	db, done := testDB(t)
+	db, done := TestDB(t)
 	if db == nil {
 		t.Fatalf("could not create temp db")
 	}
@@ -686,7 +687,7 @@ func TestRoundTrip(t *testing.T) {
 }
 
 func TestForgot(t *testing.T) {
-	db, done := testDB(t)
+	db, done := TestDB(t)
 	if db == nil {
 		t.Fatalf("could not create temp db")
 	}

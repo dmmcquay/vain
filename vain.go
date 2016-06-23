@@ -14,6 +14,15 @@ import (
 	"time"
 )
 
+// Email is a vain type for storing email addresses.
+type Email string
+
+// Token is a vain type for an api token.
+type Token string
+
+type namespace string
+type path string
+
 var vcss = map[string]bool{
 	"hg":  true,
 	"git": true,
@@ -38,15 +47,15 @@ type Package struct {
 	// Repo: the remote repository url
 	Repo string `json:"repo"`
 
-	Path string `json:"path"`
-	Ns   string `json:"-"`
+	Path string    `json:"path"`
+	Ns   namespace `json:"-"`
 }
 
 // User stores the information about a user including email used, their
 // token, whether they have registerd and the requested timestamp
 type User struct {
-	Email      string
-	Token      string
+	Email      Email
+	token      Token
 	Registered bool
 	Requested  time.Time
 }
@@ -84,17 +93,17 @@ func Valid(p string, packages []Package) bool {
 	return true
 }
 
-func parseNamespace(path string) (string, error) {
+func parseNamespace(path string) (namespace, error) {
 	path = strings.TrimLeft(path, "/")
 	if path == "" {
 		return "", errors.New("path does not contain namespace")
 	}
 	elems := strings.Split(path, "/")
-	return elems[0], nil
+	return namespace(elems[0]), nil
 }
 
 // FreshToken returns a random token string.
-func FreshToken() string {
+func FreshToken() Token {
 	buf := &bytes.Buffer{}
 	io.Copy(buf, io.LimitReader(rand.Reader, 6))
 	s := hex.EncodeToString(buf.Bytes())
@@ -102,5 +111,5 @@ func FreshToken() string {
 	for i := 0; i < len(s)/4; i++ {
 		r = append(r, s[i*4:(i+1)*4])
 	}
-	return strings.Join(r, "-")
+	return Token(strings.Join(r, "-"))
 }

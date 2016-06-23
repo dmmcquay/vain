@@ -1,342 +1,241 @@
 package vain
 
 import (
-	"database/sql"
+	"encoding/json"
 	"fmt"
-	"log"
 	"net/http"
+	"os"
+	"sync"
 	"time"
 
-	"github.com/jmoiron/sqlx"
-	// for side effects
-	_ "github.com/mattn/go-sqlite3"
-
 	verrors "mcquay.me/vain/errors"
-	vsql "mcquay.me/vain/sql"
 )
 
-// DB wraps a sqlx.DB connection and provides methods for interating with
-// a vain database.
-type DB struct {
-	conn *sqlx.DB
-}
+// NewMemDB returns a functional MemDB.
+func NewMemDB(p string) (*MemDB, error) {
+	m := &MemDB{
+		filename: p,
 
-// NewDB opens a sqlite3 file, sets options, and reports errors.
-func NewDB(path string) (*DB, error) {
-	conn, err := sqlx.Open("sqlite3", fmt.Sprintf("file:%s?cache=shared&mode=rwc", path))
-	if _, err := conn.Exec("PRAGMA foreign_keys = ON"); err != nil {
-		return nil, err
+		Users:      map[Email]User{},
+		TokToEmail: map[Token]Email{},
+
+		Packages:   map[path]Package{},
+		Namespaces: map[namespace]Email{},
 	}
-	return &DB{conn}, err
-}
 
-// Init runs the embedded sql to initialize tables.
-func (db *DB) Init() error {
-	content, err := vsql.Asset("sql/init.sql")
+	f, err := os.Open(p)
 	if err != nil {
-		return err
+		// file doesn't exist yet
+		return m, nil
 	}
-	_, err = db.conn.Exec(string(content))
-	return err
+	err = json.NewDecoder(f).Decode(m)
+	return m, err
 }
 
-// Close the underlying connection.
-func (db *DB) Close() error {
-	return db.conn.Close()
-}
+// MemDB implements an in-memory, and disk-backed database for a vain server.
+type MemDB struct {
+	filename string
 
-// AddPackage adds p into packages table.
-func (db *DB) AddPackage(p Package) error {
-	_, err := db.conn.NamedExec(
-		"INSERT INTO packages(vcs, repo, path, ns) VALUES (:vcs, :repo, :path, :ns)",
-		&p,
-	)
-	return err
-}
+	l sync.RWMutex
 
-// RemovePackage removes package with given path
-func (db *DB) RemovePackage(path string) error {
-	_, err := db.conn.Exec("DELETE FROM packages WHERE path = ?", path)
-	return err
-}
+	Users      map[Email]User
+	TokToEmail map[Token]Email
 
-// Pkgs returns all packages from the database
-func (db *DB) Pkgs() []Package {
-	r := []Package{}
-	rows, err := db.conn.Queryx("SELECT * FROM packages")
-	if err != nil {
-		log.Printf("%+v", err)
-		return nil
-	}
-	for rows.Next() {
-		var p Package
-		err = rows.StructScan(&p)
-		if err != nil {
-			log.Printf("%+v", err)
-			return nil
-		}
-		r = append(r, p)
-	}
-	return r
-}
-
-// PackageExists tells if a package with path is in the database.
-func (db *DB) PackageExists(path string) bool {
-	var count int
-	if err := db.conn.Get(&count, "SELECT COUNT(*) FROM packages WHERE path = ?", path); err != nil {
-		log.Printf("%+v", err)
-	}
-
-	r := false
-	switch count {
-	case 1:
-		r = true
-	default:
-		log.Printf("unexpected count of packages matching %q: %d", path, count)
-	}
-	return r
-}
-
-// Package fetches the package associated with path.
-func (db *DB) Package(path string) (Package, error) {
-	r := Package{}
-	err := db.conn.Get(&r, "SELECT * FROM packages WHERE path = ?", path)
-	if err == sql.ErrNoRows {
-		return r, verrors.HTTP{
-			Message: fmt.Sprintf("couldn't find package %q", path),
-			Code:    http.StatusNotFound,
-		}
-	}
-	return r, err
+	Packages   map[path]Package
+	Namespaces map[namespace]Email
 }
 
 // NSForToken creates an entry namespaces with a relation to the token.
-func (db *DB) NSForToken(ns string, tok string) error {
+func (m *MemDB) NSForToken(ns namespace, tok Token) error {
+	m.l.Lock()
+	defer m.l.Unlock()
+
+	e, ok := m.TokToEmail[tok]
+	if !ok {
+		return verrors.HTTP{
+			Message: fmt.Sprintf("User for token %q not found", tok),
+			Code:    http.StatusNotFound,
+		}
+	}
+
+	if owner, ok := m.Namespaces[ns]; !ok {
+		m.Namespaces[ns] = e
+	} else {
+		if m.Namespaces[ns] != owner {
+			return verrors.HTTP{
+				Message: fmt.Sprintf("not authorized against namespace %q", ns),
+				Code:    http.StatusUnauthorized,
+			}
+		}
+	}
+	return m.flush(m.filename)
+}
+
+// Package fetches the package associated with path.
+func (m *MemDB) Package(pth string) (Package, error) {
+	m.l.RLock()
+	pkg, ok := m.Packages[path(pth)]
+	m.l.RUnlock()
 	var err error
-	txn, err := db.conn.Beginx()
-	if err != nil {
-		return verrors.HTTP{
-			Message: fmt.Sprintf("problem creating transaction: %v", err),
-			Code:    http.StatusInternalServerError,
-		}
-	}
-	defer func() {
-		if err != nil {
-			txn.Rollback()
-		} else {
-			txn.Commit()
-		}
-	}()
-
-	var count int
-	if err = txn.Get(&count, "SELECT COUNT(*) FROM namespaces WHERE namespaces.ns = ?", ns); err != nil {
-		return verrors.HTTP{
-			Message: fmt.Sprintf("problem matching fetching namespaces matching %q", ns),
-			Code:    http.StatusInternalServerError,
-		}
-	}
-
-	if count == 0 {
-		var email string
-		if err = txn.Get(&email, "SELECT email FROM users WHERE token = $1", tok); err != nil {
-			return verrors.HTTP{
-				Message: fmt.Sprintf("could not find user for token %q", tok),
-				Code:    http.StatusInternalServerError,
-			}
-		}
-		if _, err = txn.Exec(
-			"INSERT INTO namespaces(ns, email) VALUES ($1, $2)",
-			ns,
-			email,
-		); err != nil {
-			return verrors.HTTP{
-				Message: fmt.Sprintf("problem inserting %q into namespaces for token %q: %v", ns, tok, err),
-				Code:    http.StatusInternalServerError,
-			}
-		}
-		return err
-	}
-
-	if err = txn.Get(&count, "SELECT COUNT(*) FROM namespaces JOIN users ON namespaces.email = users.email WHERE users.token = ? AND namespaces.ns = ?", tok, ns); err != nil {
-		return verrors.HTTP{
-			Message: fmt.Sprintf("ns: %q, tok: %q; %v", ns, tok, err),
-			Code:    http.StatusInternalServerError,
-		}
-	}
-
-	switch count {
-	case 1:
-		err = nil
-	case 0:
+	if !ok {
 		err = verrors.HTTP{
-			Message: fmt.Sprintf("not authorized against namespace %q", ns),
-			Code:    http.StatusUnauthorized,
-		}
-	default:
-		err = verrors.HTTP{
-			Message: fmt.Sprintf("inconsistent db; found %d results with ns (%s) with token (%s)", count, ns, tok),
-			Code:    http.StatusInternalServerError,
+			Message: fmt.Sprintf("couldn't find package %q", pth),
+			Code:    http.StatusNotFound,
 		}
 	}
-	return err
+	return pkg, err
+}
+
+// AddPackage adds p into packages table.
+func (m *MemDB) AddPackage(p Package) error {
+	m.l.Lock()
+	m.Packages[path(p.Path)] = p
+	m.l.Unlock()
+	return m.flush(m.filename)
+}
+
+// RemovePackage removes package with given path
+func (m *MemDB) RemovePackage(pth path) error {
+	m.l.Lock()
+	delete(m.Packages, pth)
+	m.l.Unlock()
+	return m.flush(m.filename)
+}
+
+// PackageExists tells if a package with path is in the database.
+func (m *MemDB) PackageExists(pth path) bool {
+	m.l.RLock()
+	_, ok := m.Packages[path(pth)]
+	m.l.RUnlock()
+	return ok
+}
+
+// Pkgs returns all packages from the database
+func (m *MemDB) Pkgs() []Package {
+	ps := []Package{}
+	m.l.RLock()
+	for _, p := range m.Packages {
+		ps = append(ps, p)
+	}
+	m.l.RUnlock()
+	return ps
 }
 
 // Register adds email to the database, returning an error if there was one.
-func (db *DB) Register(email string) (string, error) {
-	var err error
-	txn, err := db.conn.Beginx()
-	if err != nil {
-		return "", verrors.HTTP{
-			Message: fmt.Sprintf("problem creating transaction: %v", err),
-			Code:    http.StatusInternalServerError,
-		}
-	}
-	defer func() {
-		if err != nil {
-			txn.Rollback()
-		} else {
-			txn.Commit()
-		}
-	}()
+func (m *MemDB) Register(e Email) (Token, error) {
+	m.l.Lock()
+	defer m.l.Unlock()
 
-	var count int
-	if err = txn.Get(&count, "SELECT COUNT(*) FROM users WHERE email = ?", email); err != nil {
+	if _, ok := m.Users[e]; ok {
 		return "", verrors.HTTP{
-			Message: fmt.Sprintf("could not search for email %q in db: %v", email, err),
-			Code:    http.StatusInternalServerError,
-		}
-	}
-
-	if count != 0 {
-		return "", verrors.HTTP{
-			Message: fmt.Sprintf("duplicate email %q", email),
+			Message: fmt.Sprintf("duplicate email %q", e),
 			Code:    http.StatusConflict,
 		}
 	}
 
 	tok := FreshToken()
-	_, err = txn.Exec(
-		"INSERT INTO users(email, token, requested) VALUES (?, ?, ?)",
-		email,
-		tok,
-		time.Now(),
-	)
-	return tok, err
+	m.Users[e] = User{
+		Email:     e,
+		token:     tok,
+		Requested: time.Now(),
+	}
+	m.TokToEmail[tok] = e
+	return tok, m.flush(m.filename)
 }
 
 // Confirm  modifies the user with the given token. Used on register confirmation.
-func (db *DB) Confirm(token string) (string, error) {
-	var err error
-	txn, err := db.conn.Beginx()
-	if err != nil {
-		return "", verrors.HTTP{
-			Message: fmt.Sprintf("problem creating transaction: %v", err),
-			Code:    http.StatusInternalServerError,
-		}
-	}
-	defer func() {
-		if err != nil {
-			txn.Rollback()
-		} else {
-			txn.Commit()
-		}
-	}()
+func (m *MemDB) Confirm(tok Token) (Token, error) {
+	m.l.Lock()
+	defer m.l.Unlock()
 
-	var count int
-	if err = txn.Get(&count, "SELECT COUNT(*) FROM users WHERE token = ?", token); err != nil {
+	e, ok := m.TokToEmail[tok]
+	if !ok {
 		return "", verrors.HTTP{
-			Message: fmt.Sprintf("could not perform search for user with token %q in db: %v", token, err),
-			Code:    http.StatusInternalServerError,
-		}
-	}
-
-	if count != 1 {
-		return "", verrors.HTTP{
-			Message: fmt.Sprintf("bad token: %s", token),
+			Message: fmt.Sprintf("bad token: %s", tok),
 			Code:    http.StatusNotFound,
 		}
 	}
 
-	newToken := FreshToken()
-
-	_, err = txn.Exec(
-		"UPDATE users SET token = ?, registered = 1 WHERE token = ?",
-		newToken,
-		token,
-	)
-	if err != nil {
+	delete(m.TokToEmail, tok)
+	tok = FreshToken()
+	u, ok := m.Users[e]
+	if !ok {
 		return "", verrors.HTTP{
-			Message: fmt.Sprintf("couldn't update user with token %q: %v", token, err),
+			Message: fmt.Sprintf("inconsistent db; found email for token %q, but no user for email %q", tok, e),
 			Code:    http.StatusInternalServerError,
 		}
 	}
-	return newToken, nil
+	u.token = tok
+	m.Users[e] = u
+	m.TokToEmail[tok] = e
+
+	return tok, m.flush(m.filename)
 }
 
-func (db *DB) forgot(email string, window time.Duration) (string, error) {
-	txn, err := db.conn.Beginx()
-	if err != nil {
-		return "", verrors.HTTP{
-			Message: fmt.Sprintf("problem creating transaction: %v", err),
-			Code:    http.StatusInternalServerError,
-		}
-	}
-	defer func() {
-		if err != nil {
-			txn.Rollback()
-		} else {
-			txn.Commit()
-		}
-	}()
+// Forgot is used fetch a user's token. It implements rudimentary rate
+// limiting.
+func (m *MemDB) Forgot(e Email, window time.Duration) (Token, error) {
+	m.l.Lock()
+	defer m.l.Unlock()
 
-	out := struct {
-		Token     string
-		Requested time.Time
-	}{}
-	if err = txn.Get(&out, "SELECT token, requested FROM users WHERE email = ?", email); err != nil {
+	u, ok := m.Users[e]
+	if !ok {
 		return "", verrors.HTTP{
-			Message: fmt.Sprintf("could not find email %q in db", email),
+			Message: fmt.Sprintf("could not find email %q in db", e),
 			Code:    http.StatusNotFound,
 		}
 	}
 
-	if out.Requested.After(time.Now()) {
+	if u.Requested.After(time.Now()) {
 		return "", verrors.HTTP{
-			Message: fmt.Sprintf("rate limit hit for %q; try again in %0.2f mins", email, out.Requested.Sub(time.Now()).Minutes()),
+			Message: fmt.Sprintf("rate limit hit for %q; try again in %0.2f mins", u.Email, u.Requested.Sub(time.Now()).Minutes()),
 			Code:    http.StatusTooManyRequests,
 		}
 	}
-	_, err = txn.Exec("UPDATE users SET requested = ? WHERE email = ?", time.Now().Add(window), email)
+
+	return u.token, nil
+}
+
+// Sync takes a lock, and flushes the data to disk.
+func (m *MemDB) Sync() error {
+	m.l.RLock()
+	defer m.l.RUnlock()
+
+	return m.flush(m.filename)
+}
+
+// flush writes to disk, but expects the user to have taken the lock.
+func (m *MemDB) flush(p string) error {
+	f, err := os.Create(p)
 	if err != nil {
-		return "", verrors.HTTP{
-			Message: fmt.Sprintf("could not update last requested time for %q: %v", email, err),
-			Code:    http.StatusInternalServerError,
-		}
+		return err
 	}
-	return out.Token, nil
+	return json.NewEncoder(f).Encode(&m)
 }
 
-func (db *DB) addUser(email string) (string, error) {
+func (m *MemDB) addUser(e Email) (Token, error) {
 	tok := FreshToken()
-	_, err := db.conn.Exec(
-		"INSERT INTO users(email, token, requested) VALUES (?, ?, ?)",
-		email,
-		tok,
-		time.Now(),
-	)
-	return tok, err
+
+	m.l.Lock()
+	m.Users[e] = User{
+		Email:     e,
+		token:     tok,
+		Requested: time.Now(),
+	}
+	m.TokToEmail[tok] = e
+	m.l.Unlock()
+
+	return tok, m.flush(m.filename)
 }
 
-func (db *DB) user(email string) (User, error) {
-	u := User{}
-	err := db.conn.Get(
-		&u,
-		"SELECT email, token, registered, requested FROM users WHERE email = ?",
-		email,
-	)
-	if err == sql.ErrNoRows {
-		return User{}, verrors.HTTP{
-			Message: fmt.Sprintf("could not find requested user's email: %q: %v", email, err),
+func (m *MemDB) user(e Email) (User, error) {
+	m.l.Lock()
+	u, ok := m.Users[e]
+	m.l.Unlock()
+	var err error
+	if !ok {
+		err = verrors.HTTP{
+			Message: fmt.Sprintf("couldn't find user %q", e),
 			Code:    http.StatusNotFound,
 		}
 	}

@@ -12,13 +12,13 @@ type Mailer interface {
 	Send(to mail.Address, subject, msg string) error
 }
 
-// NewEmail returns *Email struct to be able to send smtp
+// NewMail returns *Send struct to be able to send smtp
 // or an error if it can't correctly parse the email address.
-func NewEmail(from, host string, port int) (*Email, error) {
+func NewMail(from, host string, port int) (*Mail, error) {
 	if _, err := mail.ParseAddress(from); err != nil {
 		return nil, fmt.Errorf("can't parse an email address for 'from': %v", err)
 	}
-	r := &Email{
+	r := &Mail{
 		host: host,
 		port: port,
 		from: from,
@@ -26,16 +26,16 @@ func NewEmail(from, host string, port int) (*Email, error) {
 	return r, nil
 }
 
-// Email stores information required to use smtp.
-type Email struct {
+// Mail stores information required to use smtp.
+type Mail struct {
 	host string
 	port int
 	from string
 }
 
-// Send sends a smtp email using the host and port in the Email struct and
+// Send sends a smtp email using the host and port in the Mail struct and
 //returns an error if there was a problem sending the email.
-func (e Email) Send(to mail.Address, subject, msg string) error {
+func (e Mail) Send(to mail.Address, subject, msg string) error {
 	c, err := smtp.Dial(fmt.Sprintf("%s:%d", e.host, e.port))
 	if err != nil {
 		return fmt.Errorf("couldn't dial mail server: %v", err)

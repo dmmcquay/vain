@@ -132,7 +132,7 @@ func TestValid(t *testing.T) {
 func TestNamespaceParsing(t *testing.T) {
 	tests := []struct {
 		input string
-		want  string
+		want  namespace
 		err   error
 	}{
 		{

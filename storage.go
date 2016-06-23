@@ -4,13 +4,15 @@ import "time"
 
 // Storer defines the db interface.
 type Storer interface {
-	AddPackage(p Package) error
-	Confirm(token string) (string, error)
-	NSForToken(ns string, tok string) error
+	NSForToken(ns namespace, tok Token) error
+
 	Package(path string) (Package, error)
-	PackageExists(path string) bool
+	AddPackage(p Package) error
+	RemovePackage(pth path) error
+	PackageExists(pth path) bool
 	Pkgs() []Package
-	Register(email string) (string, error)
-	RemovePackage(path string) error
-	forgot(email string, window time.Duration) (string, error)
+
+	Register(e Email) (Token, error)
+	Confirm(tok Token) (Token, error)
+	Forgot(e Email, window time.Duration) (Token, error)
 }

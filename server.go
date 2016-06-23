@@ -91,7 +91,7 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	if err := verrors.ToHTTP(s.db.NSForToken(ns, tok)); err != nil {
+	if err := verrors.ToHTTP(s.db.NSForToken(ns, Token(tok))); err != nil {
 		http.Error(w, err.Message, err.Code)
 		return
 	}
@@ -130,12 +130,12 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		}
 	case "DELETE":
 		p := fmt.Sprintf("%s/%s", req.Host, strings.Trim(req.URL.Path, "/"))
-		if !s.db.PackageExists(p) {
+		if !s.db.PackageExists(path(p)) {
 			http.Error(w, fmt.Sprintf("package %q not found", p), http.StatusNotFound)
 			return
 		}
 
-		if err := s.db.RemovePackage(p); err != nil {
+		if err := s.db.RemovePackage(path(p)); err != nil {
 			http.Error(w, fmt.Sprintf("unable to delete package: %v", err), http.StatusInternalServerError)
 			return
 		}
@@ -158,7 +158,7 @@ func (s *Server) register(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	tok, err := s.db.Register(addr.Address)
+	tok, err := s.db.Register(Email(addr.Address))
 	if err := verrors.ToHTTP(err); err != nil {
 		http.Error(w, err.Message, err.Code)
 		return
@@ -194,12 +194,12 @@ func (s *Server) confirm(w http.ResponseWriter, req *http.Request) {
 		http.Error(w, "must provide one email parameter", http.StatusBadRequest)
 		return
 	}
-	tok, err := s.db.Confirm(tok)
+	ttok, err := s.db.Confirm(Token(tok))
 	if err := verrors.ToHTTP(err); err != nil {
 		http.Error(w, err.Message, err.Code)
 		return
 	}
-	fmt.Fprintf(w, "new token: %s\n", tok)
+	fmt.Fprintf(w, "new token: %s\n", ttok)
 }
 
 func (s *Server) forgot(w http.ResponseWriter, req *http.Request) {
@@ -216,7 +216,7 @@ func (s *Server) forgot(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	tok, err := s.db.forgot(addr.Address, s.emailTimeout)
+	tok, err := s.db.Forgot(Email(addr.Address), s.emailTimeout)
 	if err := verrors.ToHTTP(err); err != nil {
 		http.Error(w, err.Message, err.Code)
 		return

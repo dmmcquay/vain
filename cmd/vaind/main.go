@@ -45,6 +45,8 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"os/signal"
+	"syscall"
 	"time"
 
 	"mcquay.me/vain"
@@ -52,7 +54,7 @@ import (
 	"github.com/kelseyhightower/envconfig"
 )
 
-const usage = "vaind [init] <dbname>"
+const usage = "vaind <dbname>"
 
 type config struct {
 	Port     int
@@ -72,35 +74,9 @@ type config struct {
 }
 
 func main() {
+	log.SetFlags(log.Lshortfile)
 	if len(os.Args) < 2 {
 		fmt.Fprintf(os.Stderr, "%s\n", usage)
-		os.Exit(1)
-	}
-
-	if os.Args[1] == "init" {
-		if len(os.Args) != 3 {
-			fmt.Fprintf(os.Stderr, "missing db name: %s\n", usage)
-			os.Exit(1)
-		}
-
-		db, err := vain.NewDB(os.Args[2])
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "couldn't open db: %v\n", err)
-			os.Exit(1)
-		}
-		defer db.Close()
-
-		if err := db.Init(); err != nil {
-			fmt.Fprintf(os.Stderr, "problem initializing the db: %v\n", err)
-			os.Exit(1)
-		}
-
-		os.Exit(0)
-	}
-
-	db, err := vain.NewDB(os.Args[1])
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "couldn't open db: %v\n", err)
 		os.Exit(1)
 	}
 
@@ -131,10 +107,27 @@ func main() {
 			os.Exit(0)
 		}
 	}
-
 	log.Printf("%+v", c)
 
-	m, err := vain.NewEmail(c.From, c.SMTPHost, c.SMTPPort)
+	db, err := vain.NewMemDB(os.Args[1])
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "couldn't open db: %v\n", err)
+		os.Exit(1)
+	}
+
+	sigs := make(chan os.Signal)
+	signal.Notify(sigs, os.Interrupt, syscall.SIGTERM)
+	go func() {
+		s := <-sigs
+		log.Printf("signal: %+v", s)
+		if err := db.Sync(); err != nil {
+			log.Printf("problem syncing db to disk: %+v", err)
+			os.Exit(1)
+		}
+		os.Exit(0)
+	}()
+
+	m, err := vain.NewMail(c.From, c.SMTPHost, c.SMTPPort)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "problem initializing mailer: %v", err)
 		os.Exit(1)

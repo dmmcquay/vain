@@ -31,7 +31,7 @@ func init() {
 
 // Server serves up the http.
 type Server struct {
-	db           *DB
+	db           Storer
 	static       string
 	emailTimeout time.Duration
 	mail         Mailer
@@ -39,7 +39,7 @@ type Server struct {
 }
 
 // NewServer populates a server, adds the routes, and returns it for use.
-func NewServer(sm *http.ServeMux, store *DB, m Mailer, static string, emailTimeout time.Duration, insecure bool) *Server {
+func NewServer(sm *http.ServeMux, store Storer, m Mailer, static string, emailTimeout time.Duration, insecure bool) *Server {
 	s := &Server{
 		db:           store,
 		static:       static,

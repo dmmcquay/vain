@@ -9,8 +9,10 @@ import (
 	"time"
 
 	"github.com/elazarl/go-bindata-assetfs"
+	"github.com/prometheus/client_golang/prometheus"
 
 	verrors "mcquay.me/vain/errors"
+	"mcquay.me/vain/metrics"
 	"mcquay.me/vain/static"
 )
 
@@ -52,6 +54,7 @@ func NewServer(sm *http.ServeMux, store Storer, m Mailer, static string, emailTi
 }
 
 func (s *Server) ServeHTTP(w http.ResponseWriter, req *http.Request) {
+	defer metrics.Time()()
 	if req.Method == "GET" {
 		req.ParseForm()
 		if _, ok := req.Form["go-get"]; !ok {
@@ -67,6 +70,7 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		} else {
 			p, err := s.db.Package(req.Host + req.URL.Path)
 			if err := verrors.ToHTTP(err); err != nil {
+				metrics.Errors.WithLabelValues(fmt.Sprintf("%d: %s", err.Code, http.StatusText(err.Code))).Add(1)
 				http.Error(w, err.Message, err.Code)
 				return
 			}
@@ -92,6 +96,7 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	}
 
 	if err := verrors.ToHTTP(s.db.NSForToken(ns, Token(tok))); err != nil {
+		metrics.Errors.WithLabelValues(fmt.Sprintf("%d: %s", err.Code, http.StatusText(err.Code))).Add(1)
 		http.Error(w, err.Message, err.Code)
 		return
 	}
@@ -104,6 +109,7 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		}
 		p := Package{}
 		if err := json.NewDecoder(req.Body).Decode(&p); err != nil {
+			metrics.Errors.WithLabelValues(fmt.Sprintf("%d: %s", http.StatusBadRequest, http.StatusText(http.StatusBadRequest))).Add(1)
 			http.Error(w, fmt.Sprintf("unable to parse json from body: %v", err), http.StatusBadRequest)
 			return
 		}
@@ -145,6 +151,7 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 }
 
 func (s *Server) register(w http.ResponseWriter, req *http.Request) {
+	defer metrics.Time()()
 	req.ParseForm()
 	email, ok := req.Form["email"]
 	if !ok || len(email) != 1 {
@@ -160,6 +167,7 @@ func (s *Server) register(w http.ResponseWriter, req *http.Request) {
 
 	tok, err := s.db.Register(Email(addr.Address))
 	if err := verrors.ToHTTP(err); err != nil {
+		metrics.Errors.WithLabelValues(fmt.Sprintf("%d: %s", err.Code, http.StatusText(err.Code))).Add(1)
 		http.Error(w, err.Message, err.Code)
 		return
 	}
@@ -188,6 +196,7 @@ func (s *Server) register(w http.ResponseWriter, req *http.Request) {
 }
 
 func (s *Server) confirm(w http.ResponseWriter, req *http.Request) {
+	defer metrics.Time()()
 	tok := req.URL.Path[len(prefix["confirm"]):]
 	tok = strings.TrimRight(tok, "/")
 	if tok == "" {
@@ -196,6 +205,7 @@ func (s *Server) confirm(w http.ResponseWriter, req *http.Request) {
 	}
 	ttok, err := s.db.Confirm(Token(tok))
 	if err := verrors.ToHTTP(err); err != nil {
+		metrics.Errors.WithLabelValues(fmt.Sprintf("%d: %s", err.Code, http.StatusText(err.Code))).Add(1)
 		http.Error(w, err.Message, err.Code)
 		return
 	}
@@ -203,6 +213,7 @@ func (s *Server) confirm(w http.ResponseWriter, req *http.Request) {
 }
 
 func (s *Server) forgot(w http.ResponseWriter, req *http.Request) {
+	defer metrics.Time()()
 	req.ParseForm()
 	email, ok := req.Form["email"]
 	if !ok || len(email) != 1 {
@@ -218,6 +229,7 @@ func (s *Server) forgot(w http.ResponseWriter, req *http.Request) {
 
 	tok, err := s.db.Forgot(Email(addr.Address), s.emailTimeout)
 	if err := verrors.ToHTTP(err); err != nil {
+		metrics.Errors.WithLabelValues(fmt.Sprintf("%d: %s", err.Code, http.StatusText(err.Code))).Add(1)
 		http.Error(w, err.Message, err.Code)
 		return
 	}
@@ -245,12 +257,14 @@ func (s *Server) forgot(w http.ResponseWriter, req *http.Request) {
 }
 
 func (s *Server) pkgs(w http.ResponseWriter, req *http.Request) {
+	defer metrics.Time()()
 	w.Header().Set("Content-type", "application/json")
 	json.NewEncoder(w).Encode(s.db.Pkgs())
 }
 
 func addRoutes(sm *http.ServeMux, s *Server) {
 	sm.Handle("/", s)
+	sm.Handle("/metrics", prometheus.Handler())
 
 	if s.static == "" {
 		sm.Handle(

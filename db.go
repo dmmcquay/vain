@@ -9,6 +9,7 @@ import (
 	"time"
 
 	verrors "mcquay.me/vain/errors"
+	"mcquay.me/vain/metrics"
 )
 
 // NewMemDB returns a functional MemDB.
@@ -206,6 +207,7 @@ func (m *MemDB) Sync() error {
 
 // flush writes to disk, but expects the user to have taken the lock.
 func (m *MemDB) flush(p string) error {
+	defer metrics.DBTime("flush")()
 	f, err := os.Create(p)
 	if err != nil {
 		return err

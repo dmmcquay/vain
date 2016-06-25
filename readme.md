@@ -4,8 +4,12 @@
 
 ## installation
 
-    $ go get mcquay.me/vain/cmd/vaind
+```bash
+$ go get mcquay.me/vain/cmd/vaind
+```
 
 ## running server
 
-    $ vaind
+```bash
+$ VAIN_FROM=me@example.org vaind vain.db
+```

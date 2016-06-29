@@ -58,7 +58,11 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	if req.Method == "GET" {
 		req.ParseForm()
 		if _, ok := req.Form["go-get"]; !ok {
-			http.Redirect(w, req, prefix["static"], http.StatusTemporaryRedirect)
+			route := prefix["static"]
+			if p, err := s.db.Package(req.Host + req.URL.Path); err == nil {
+				route = p.Repo
+			}
+			http.Redirect(w, req, route, http.StatusTemporaryRedirect)
 			return
 		}
 		if req.URL.Path == "/" {

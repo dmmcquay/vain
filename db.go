@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"strings"
 	"sync"
 	"time"
 
@@ -75,16 +76,30 @@ func (m *MemDB) NSForToken(ns namespace, tok Token) error {
 // Package fetches the package associated with path.
 func (m *MemDB) Package(pth string) (Package, error) {
 	m.l.RLock()
+	defer m.l.RUnlock()
+
 	pkg, ok := m.Packages[path(pth)]
-	m.l.RUnlock()
+	if ok {
+		return pkg, nil
+	}
+
+	var longest Package
+	for _, p := range m.Packages {
+		if splitPathHasPrefix(strings.Split(pth, "/"), strings.Split(p.Path, "/")) {
+			if len(p.Path) > len(longest.Path) {
+				longest = p
+			}
+		}
+	}
+
 	var err error
-	if !ok {
+	if longest.Path == "" {
 		err = verrors.HTTP{
 			Message: fmt.Sprintf("couldn't find package %q", pth),
 			Code:    http.StatusNotFound,
 		}
 	}
-	return pkg, err
+	return longest, err
 }
 
 // AddPackage adds p into packages table.

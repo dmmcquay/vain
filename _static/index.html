@@ -46,12 +46,12 @@
             <p>
             <pre>
 $ export TOKEN=c033-b79f-7fa1
-$ curl -i -H "Authorization: Bearer $TOKEN" -d '{"repo": "https://git.example.com/user/foo"}' https://vain/me/foo </pre>
+$ curl -i -H "Authorization: Bearer $TOKEN" -d '{"repo": "https://git.example.com/user/foo"}' https://go.example.com/foo </pre>
             </p>
             <h2>Deleting a repository</h2>
             <p>Using the appropriate token for the route you want to delete:</p>
             <pre>
-$ curl -i -H "Authorization: Bearer $TOKEN" -X DELETE https://vain/me/foo </pre>
+$ curl -i -H "Authorization: Bearer $TOKEN" -X DELETE https://go.example.com/foo </pre>
 
             <h2>go tool</h2>
             <p> The <a href="https://golang.org/cmd/go/#hdr-Download_and_install_packages_and_dependencies">go tool</a> doesn't need any modification in order to work, e.g. if vain is hosted on <code>https://go.example.com</code>: </p> <pre>$ go get go.example.com/foo</pre>
